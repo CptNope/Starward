@@ -30,7 +30,8 @@ src/
     universe.js       galaxy, species, factions, relations, territory, systems, NPCs, ship defs
     items.js          item generator (tiers, affixes, specials, naming), loot, commodities
   player.js           player state, derived ship/personal stats, skill math, reputation
-  space.js            SpaceMode: flight, ship AI, combat, loot crates, docking, interactions
+  space.js            SpaceMode: flight, ship AI (incl. capital-ship turrets), combat, loot crates, docking, interactions
+  spacefeatures.js    asteroid mining, wingmen (ally ships + formation), signals/random events
   onfoot.js           OnFootMode: third-person controller, actors, AI, crates, deposits
   ground.js           planet surface environment (heightfield, props, outposts, wildlife)
   interior.js         ship interior environment (rooms + corridors grid, crew, loot)
@@ -65,6 +66,25 @@ docs/                 guides and screenshots
 Landing or boarding **pushes** an `OnFootMode` on top of the space mode, which stays alive (paused) underneath. Leaving **pops** it and calls `resume()`. Jumping or respawning clears the stack and builds a fresh `SpaceMode`.
 
 Every mode exposes `scene`, `camera`, `update(dt)`, `resume()` and `dispose()`. An `OnFootMode` environment object exposes `build(scene)`, `height(x, z)`, `collide(pos, radius)`, `blocksShot(pos)`, `actors`, `crates`, `deposits` and `onExit()`. To add a new on-foot place (a station concourse, a cave), write a new environment maker in that shape.
+
+### Teams in space
+
+`SpaceMode.canHit(owner, target)` holds all the friend-or-foe rules:
+
+- The player hits anything except wingmen and rocks they don't mean to. Attacking a non-hostile ship costs reputation.
+- Wingmen (`ship.ally`) hit anything except the player and other allies.
+- NPCs hit the player and wingmen only when they're hostile to the player (by reputation, pirate ideology, or being attacked).
+- NPCs fight each other when `factionsAtWar` or when one has the other in its `aggro` set.
+
+Rocks (`target.rock`) can only be hit by the player and allies.
+
+### Signals
+
+`spawnSignal(mode, nearPlayer)` places an unresolved signal. `updateSignals` resolves it when the player comes within about 2.5 km, by spawning the encounter through `mode.spawnGroup({ ..., at })`, and tracks win conditions (for example, a distress call's `watch` of the victim and its attackers). To add a signal type, add it to `SIGNAL_TYPES` and handle it in `resolveSignal`.
+
+### Crafting
+
+Every generated item keeps a `core` snapshot (its stats before bonuses). `rebuild(item)` reapplies affixes and specials on top of the core, which is what makes `upgradeItem` and `reforgeItem` exact. `ensureCore` reconstructs a core for items saved before v0.3.
 
 ### Stats
 

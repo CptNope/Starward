@@ -5,7 +5,7 @@ import { mat, glowSprite } from './models.js';
 import { Q } from './quality.js';
 
 const CELL = 5, CEIL = 5.2;
-const DIMS = { scout: [13, 9], fighter: [15, 11], interceptor: [15, 11], gunship: [21, 15], corvette: [25, 17], freighter: [27, 15], frigate: [31, 21] };
+const DIMS = { dreadnought: [37, 25], scout: [13, 9], fighter: [15, 11], interceptor: [15, 11], gunship: [21, 15], corvette: [25, 17], freighter: [27, 15], frigate: [31, 21] };
 
 // Interior of a ship (boarding / visiting). Also used for derelicts.
 export function makeInteriorEnv(game, spaceMode, ship, peaceful) {
@@ -53,7 +53,7 @@ export function makeInteriorEnv(game, spaceMode, ship, peaceful) {
   const col = fac ? fac.color : 0x8899aa;
   const env = {
     type: 'interior', level: def.level, gravity: 1, hazard: 0, height: () => 0, collide, blocksShot, ceiling: CEIL,
-    title: peaceful ? `Aboard the ${def.name} (${def.clsName})` : `Boarding the ${def.name}! Clear the crew.`, actors: [], crates: [], deposits: [],
+    title: ship.derelict ? `Exploring the ${def.name}. Scavengers may be aboard.` : peaceful ? `Aboard the ${def.name} (${def.clsName})` : `Boarding the ${def.name}! Clear the crew.`, actors: [], crates: [], deposits: [],
     ship, peaceful, onExit: (mode) => game.leaveInterior(mode),
   };
   env.build = (scene) => {
@@ -90,17 +90,18 @@ export function makeInteriorEnv(game, spaceMode, ship, peaceful) {
     const air = toWorld(rooms[0].cx, rooms[0].cy);
     const door = new THREE.Mesh(new THREE.RingGeometry(1.6, 2.1, 24), new THREE.MeshBasicMaterial({ color: 0x4dd6ff })); door.rotation.x = -Math.PI / 2; door.position.set(air.x, 0.03, air.z); scene.add(door);
     // crew
-    const nCrew = peaceful ? r.int(2, 5) : 2 + Math.round((def.cls === 'frigate' ? 8 : def.cls === 'corvette' ? 6 : 3) * r.range(0.8, 1.3));
+    const nCrew = ship.derelict ? r.int(0, 3) : peaceful ? r.int(2, 5) : 2 + Math.round((def.cls === 'dreadnought' ? 12 : def.cls === 'frigate' ? 8 : def.cls === 'corvette' ? 6 : 3) * r.range(0.8, 1.3));
     for (let k = 0; k < nCrew; k++) {
       const rm = rooms[1 + (k % Math.max(1, rooms.length - 1))] || rooms[0];
-      const npc = genNPC(U, r, { faction: def.faction, role: peaceful ? null : r.chance(0.7) ? 'soldier' : null, level: def.level });
+      const npc = genNPC(U, r, { faction: ship.derelict ? U.factions.find(f => f.ideology === 'pirate').id : def.faction, role: peaceful ? null : r.chance(0.7) ? 'soldier' : null, level: def.level });
       env.actors.push({ kind: 'npc', npc, level: npc.level, team: peaceful ? 'p' : 'h', aggro: 22, pos: roomPoint(rm), crew: true });
     }
     const cap = { ...def.captain, hp: (def.captain.hp || 80) * (peaceful ? 1 : 2.5) };
-    env.actors.push({ kind: 'npc', npc: cap, level: cap.level, team: peaceful ? 'p' : 'h', aggro: 22, pos: toWorld(bridge.cx, bridge.cy), boss: !peaceful, stationary: true, captain: true });
+    if (!ship.derelict) env.actors.push({ kind: 'npc', npc: cap, level: cap.level, team: peaceful ? 'p' : 'h', aggro: 22, pos: toWorld(bridge.cx, bridge.cy), boss: !peaceful, stationary: true, captain: true });
     // loot
     for (let k = 0; k < r.int(2, 4); k++) { const rm = r.pick(rooms); env.crates.push({ pos: roomPoint(rm), locked: r.chance(0.3) ? r.int(1, 3) : 0, level: def.level }); }
     if (!peaceful) env.crates.push({ pos: roomPoint(bridge), locked: Math.min(5, 1 + Math.floor(def.level / 5)), level: def.level + 2 });
+    if (ship.derelict) for (let k = 0; k < 3; k++) env.crates.push({ pos: roomPoint(r.pick(rooms)), locked: r.chance(0.4) ? r.int(1, 3) : 0, level: def.level + 1 });
     if (ship.missionId) env.crates.push({ pos: roomPoint(bridge), missionId: ship.missionId, level: def.level + 1, relic: false });
     return { pos: air.clone(), yaw: Math.PI / 2, exit: { pos: air.clone(), r: 2.6, label: 'Return through the airlock' } };
   };

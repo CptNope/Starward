@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.0 — 2026-11-20 — Living universe
+
+### Added
+- **Signals.** Random events in every system: distress calls (rescue freighters from pirates), ambushes, explorable derelicts, scannable anomalies and battles between factions at war. They appear as purple **?** markers and keep spawning while you fly.
+- **Asteroid mining.** Belts have mineable rocks that drop ore, void crystals, rare relics and parts. Scavenger now boosts asteroid yields too.
+- **Capital ships.** The Dreadnought hull class has six independent turrets, travels with escorts, and drops big loot. It prowls threat 4+ systems, can be boarded and claimed, and is rarely sold at shipyards.
+- **Wingmen.** Up to two crew members fly escort ships in formation. They fight your targets, defend you, follow you through cruise and jumps, eject when shot down, and recover when you dock.
+- **Workshop.** A new station tab. Salvage gear into parts, upgrade items a tier (new bonus, plus specials at Legendary and Mythic), or reforge their bonuses. Gear saved by earlier versions is upgraded automatically.
+- Field Guide and Player Guide sections for all of the above.
+
+### Fixed
+- Dialog text was being rendered in Title Case.
+
 ## 0.2.0 — 2026-11-20
 
 ### Added

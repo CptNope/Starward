@@ -6,19 +6,22 @@ import { genLoot, genItem } from './gen/items.js';
 import { shipStats, changeRep } from './player.js';
 import { buildShip, buildStation, glowSprite, planetTexture, nebulaTexture, starfield, disposeTree, mat, litMat } from './models.js';
 import { Q } from './quality.js';
+import { buildRocks, updateRocks, spawnWingmen, wingTarget, flyFormation, wingmanDown, spawnSignal, updateSignals } from './spacefeatures.js';
 import { Projectiles, fireWeapon } from './projectiles.js';
 
 const FWD = new THREE.Vector3(0, 0, -1), UP = new THREE.Vector3(0, 1, 0);
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _q = new THREE.Quaternion(), _e = new THREE.Euler();
 const NPC_DMG = 0.55;
 
+const U_ideo = (mode, f) => mode.U.factions[f].ideology;
+
 class Ship {
   constructor(mode, def, opts = {}) {
     this.mode = mode; this.def = def; this.isPlayer = !!opts.player;
     this.faction = def.faction; this.level = def.level;
-    const color = def.faction !== null && def.faction !== undefined ? mode.U.factions[def.faction].color : (this.isPlayer ? 0x4dd6ff : 0xaaaaaa);
+    const color = opts.ally ? 0x5be37d : def.faction !== null && def.faction !== undefined ? mode.U.factions[def.faction].color : (this.isPlayer ? 0x4dd6ff : 0xaaaaaa);
     const hc = HULL_CLASSES.find(h => h.id === def.cls);
-    this.hc = hc;
+    this.hc = hc; this.turrets = hc.turrets || 0;
     this.mesh = buildShip(def.seed, hc.size * 2.2, this.isPlayer ? 0x4dd6ff : color);
     this.pos = this.mesh.position; this.quat = this.mesh.quaternion;
     this.vel = new THREE.Vector3(); this.throttle = opts.throttle ?? 0.6;
@@ -88,7 +91,7 @@ class Ship {
 export class SpaceMode {
   constructor(game, sysId, arrival = { type: 'warp' }) {
     this.game = game; this.U = game.U; this.sysId = sysId; this.arrival = arrival; this.kind = 'space';
-    this.time = 0; this.ships = []; this.crates = []; this.targetIdx = 0;
+    this.time = 0; this.ships = []; this.crates = []; this.targetIdx = 0; this.rocks = []; this.signals = []; this.scan = null;
     this.cruise = 0; this.cruiseOn = false; this.spawnTimer = 20; this.viewMode = 0;
     this.sys = getSystem(this.U, sysId);
     this.rng = new RNG(hashInts(Date.now() & 0xffffff, sysId));
@@ -146,6 +149,7 @@ export class SpaceMode {
       this.scene.add(inst);
     }
     // projectiles
+    this._pendingBelts = sys.belts;
     this.proj = new Projectiles(this.scene, {
       scale: 6, max: 500,
       canHit: (o, t) => this.canHit(o, t),
@@ -158,8 +162,12 @@ export class SpaceMode {
     this.scene.add(this.player.mesh);
     this.ships.push(this.player);
     // NPCs
+    for (const b of this._pendingBelts) buildRocks(this, b);
     this.populate();
     this.spawnMissionTargets();
+    spawnWingmen(this, Ship);
+    for (let i = this.rng.int(1, 3); i > 0; i--) spawnSignal(this, false);
+    this.signalTimer = this.rng.range(60, 110);
     g.ui.toast(`Entered ${sys.name} — ${sys.owner !== null ? this.U.factions[sys.owner].name : 'Unclaimed space'} · Threat ${sys.danger}`, '#9fd8ff');
     this.camPos = this.player.pos.clone().add(new THREE.Vector3(0, 20, 60).applyQuaternion(this.player.quat));
     this.camera.position.copy(this.camPos);
@@ -195,24 +203,34 @@ export class SpaceMode {
     for (let i = 0; i < pirN; i++) groups.push({ faction: r.pick(pirates).id, n: r.int(1, 3), role: 'raid' });
     // a random foreign faction visitor
     if (r.chance(0.5)) groups.push({ faction: r.int(0, this.U.factions.length - 1), n: r.int(1, 2), role: 'patrol' });
-    for (const gdef of groups) this.spawnGroup(gdef, true);
+    // capital ships prowl dangerous space
+    if (sys.danger >= 4 && r.chance(0.2 + sys.danger * 0.04)) {
+      const capFac = sys.owner !== null && U_ideo(this, sys.owner) === 'militarist' && r.chance(0.5) ? sys.owner : r.pick(pirates).id;
+      groups.push({ faction: capFac, n: 1, role: capFac === sys.owner ? 'patrol' : 'raid', cls: 'dreadnought', level: sys.level + 2, escort: 3 });
+    }
+    for (const gdef of groups) {
+      const out = this.spawnGroup(gdef, true);
+      if (gdef.escort) this.spawnGroup({ faction: gdef.faction, n: gdef.escort, role: gdef.role, at: out[0].pos }, true);
+    }
   }
   randomPointNear(r) {
     const anchors = [...this.planets.map(p => p.pos), ...this.stations.map(s => s.pos)];
     const a = anchors.length ? r.pick(anchors) : new THREE.Vector3(8000, 0, 0);
     return a.clone().add(new THREE.Vector3(r.range(-1, 1), r.range(-0.3, 0.3), r.range(-1, 1)).normalize().multiplyScalar(r.range(1500, 4000)));
   }
-  spawnGroup({ faction, n, role, cls, missionId, name, level, bounty, disabled }, initial = false) {
+  spawnGroup({ faction, n, role, cls, missionId, name, level, bounty, disabled, at }, initial = false) {
     const r = this.rng;
     let center;
-    if (initial) center = this.randomPointNear(r);
+    if (at) center = at.clone();
+    else if (initial) center = this.randomPointNear(r);
     else center = this.player.pos.clone().add(new THREE.Vector3(r.range(-1, 1), r.range(-0.3, 0.3), r.range(-1, 1)).normalize().multiplyScalar(r.range(3500, 6000)));
     const out = [];
     for (let i = 0; i < n; i++) {
       const def = genShipDef(this.U, r.fork(i + this.time), { faction, level: level || this.sys.level, cls });
       if (name) def.name = name;
       const s = new Ship(this, def, { missionId, bounty });
-      s.pos.copy(center).add(new THREE.Vector3(r.range(-200, 200), r.range(-80, 80), r.range(-200, 200)));
+      const spread = 200 * Math.max(1, s.hc.size / 2);
+      s.pos.copy(center).add(new THREE.Vector3(r.range(-spread, spread), r.range(-80, 80), r.range(-spread, spread)));
       s.quat.setFromEuler(new THREE.Euler(0, r.range(0, 6.28), 0));
       s.role = role; s.waypoint = this.randomPointNear(r);
       if (role === 'raid' || bounty) s.hunter = true;
@@ -235,12 +253,14 @@ export class SpaceMode {
   }
   canHit(owner, t) {
     if (!owner || owner === t) return false;
-    if (owner.isPlayer) return true;
-    if (t.isPlayer) return this.isHostileToPlayer(owner);
+    if (t.rock) return !!(owner.isPlayer || owner.ally);
+    if (owner.isPlayer) return !t.ally;
+    if (owner.ally) return !t.isPlayer && !t.ally;
+    if (t.isPlayer || t.ally) return this.isHostileToPlayer(owner) || owner.aggro.has(t);
     return factionsAtWar(this.U, owner.faction, t.faction) || owner.aggro.has(t) || t.aggro.has(owner);
   }
   isHostileToPlayer(s) {
-    if (s.disabled) return false;
+    if (s.disabled || s.ally) return false;
     if (s.aggro.has(this.player)) return true;
     return hostileToPlayer(this.U, this.game.player, s.faction) || (s.faction !== null && this.U.factions[s.faction].ideology === 'pirate');
   }
@@ -259,9 +279,10 @@ export class SpaceMode {
     if (!s.alive) return;
     const killer = src && src.owner;
     if (s.isPlayer) { s.alive = false; this.proj.explosion(s.pos.clone(), 80); this.player.mesh.visible = false; this.game.onPlayerDeath('space'); return; }
-    const byPlayer = killer && killer.isPlayer;
+    if (s.ally) { s.alive = false; this.proj.explosion(s.pos.clone(), 40 * s.hc.size); this.scene.remove(s.mesh); disposeTree(s.mesh); wingmanDown(this, s); return; }
+    const byPlayer = killer && (killer.isPlayer || killer.ally);
     const disableChance = byPlayer ? (ion ? 0.45 : 0) + this.player.st.disable : 0.05;
-    if (!s.disabled && Math.random() < disableChance && s.role !== 'trader-dead') {
+    if (!s.disabled && Math.random() < disableChance * (s.turrets ? 0.5 : 1)) {
       s.disabled = true; s.hull = 1; s.shield = 0; s.state = 'disabled'; s.throttle = 0; s.target = null;
       this.game.ui.toast(`${s.name} disabled — fly close and press E to board`, '#ffd34d');
       if (byPlayer) this.rewardKill(s, true);
@@ -269,6 +290,7 @@ export class SpaceMode {
     }
     s.alive = false;
     this.proj.explosion(s.pos.clone(), 40 * s.hc.size);
+    if (s.turrets) for (let i = 0; i < 6; i++) this.proj.explosion(s.pos.clone().add(_v.set(Math.random() - .5, Math.random() - .5, Math.random() - .5).multiplyScalar(s.radius * 1.5)), 60 * s.hc.size);
     this.scene.remove(s.mesh); disposeTree(s.mesh);
     if (byPlayer && !s.rewarded) this.rewardKill(s, false);
     if (byPlayer || (killer && Math.random() < 0.3)) this.dropLoot(s);
@@ -289,10 +311,10 @@ export class SpaceMode {
   }
   dropLoot(s) {
     const r = this.rng, st = this.player.st;
-    const n = 1 + (r.chance(0.35 + st.dropPct) ? 1 : 0) + (s.hc.size > 1.5 ? 1 : 0) + (s.bounty ? 1 : 0);
+    const n = 1 + (r.chance(0.35 + st.dropPct) ? 1 : 0) + (s.hc.size > 1.5 ? 1 : 0) + (s.bounty ? 1 : 0) + (s.turrets ? 3 : 0);
     for (let i = 0; i < n; i++) {
       const maker = s.faction !== null ? r.pick(this.U.factions[s.faction].makers) : null;
-      let item = r.chance(0.45) && s.def.loadout.weapons.length ? JSON.parse(JSON.stringify(r.pick(s.def.loadout.weapons))) : genLoot(r, s.level, st.luck + (s.bounty ? 0.3 : 0), maker);
+      let item = r.chance(0.45) && s.def.loadout.weapons.length ? JSON.parse(JSON.stringify(r.pick(s.def.loadout.weapons))) : genLoot(r, s.level, st.luck + (s.bounty ? 0.3 : 0) + (s.turrets ? 0.4 : 0), maker);
       if (item.weapon && !item.id.startsWith('i')) item.id = 'i' + Math.random().toString(36).slice(2);
       item.id = 'i' + Math.random().toString(36).slice(2);
       this.spawnCrate(s.pos.clone().add(new THREE.Vector3(r.range(-30, 30), r.range(-30, 30), r.range(-30, 30))), { item, credits: r.int(10, 40) * s.level });
@@ -300,7 +322,7 @@ export class SpaceMode {
   }
   spawnCrate(pos, contents) {
     const tier = contents.item ? contents.item.tier : 1;
-    const color = new THREE.Color(TIERS[tier].color);
+    const color = new THREE.Color(contents.color ?? TIERS[tier].color);
     const m = new THREE.Mesh(new THREE.BoxGeometry(6, 6, 6), mat(color.getHex(), { emissive: color.getHex(), ei: 0.6 }));
     m.add(glowSprite(color, 40, 0.8));
     m.position.copy(pos); this.scene.add(m);
@@ -330,8 +352,13 @@ export class SpaceMode {
       for (const e of eg) e.material.opacity = Math.min(1, k);
       this.collideBodies(s, dt);
     }
-    this.proj.update(dt, this.ships);
+    this.proj.update(dt, this.rocks.length ? this.ships.concat(this.rocks) : this.ships);
     this.ships = this.ships.filter(s => s.alive || s.isPlayer);
+    if (this.rocks.length && this.rocks.some(r => !r.alive)) this.rocks = this.rocks.filter(r => r.alive);
+    updateRocks(this, dt);
+    updateSignals(this, dt);
+    this.signalTimer -= dt;
+    if (this.signalTimer <= 0) { this.signalTimer = this.rng.range(70, 130); if (this.signals.filter(s => !s.resolved).length < 3) spawnSignal(this, true); }
     this.updateCrates(dt);
     // ambient spawns
     this.spawnTimer -= dt;
@@ -429,7 +456,7 @@ export class SpaceMode {
   }
   enemiesNear(d) { return this.ships.some(s => !s.isPlayer && s.alive && this.isHostileToPlayer(s) && s.pos.distanceTo(this.player.pos) < d); }
   cycleTarget() {
-    const list = this.ships.filter(s => !s.isPlayer && s.alive && s.pos.distanceTo(this.player.pos) < this.player.st.radar)
+    const list = this.ships.filter(s => !s.isPlayer && !s.ally && s.alive && s.pos.distanceTo(this.player.pos) < this.player.st.radar)
       .sort((a, b) => (this.isHostileToPlayer(b) - this.isHostileToPlayer(a)) || a.pos.distanceTo(this.player.pos) - b.pos.distanceTo(this.player.pos));
     if (!list.length) { this.target = null; return; }
     this.targetIdx = (list.indexOf(this.target) + 1) % list.length;
@@ -437,15 +464,16 @@ export class SpaceMode {
   }
   targetAhead() {
     const f = this.player.forward(); let best = null, ba = 0.35;
-    for (const s of this.ships) { if (s.isPlayer || !s.alive) continue; const a = _v.copy(s.pos).sub(this.player.pos).normalize().angleTo(f); if (a < ba) { ba = a; best = s; } }
+    for (const s of this.ships) { if (s.isPlayer || s.ally || !s.alive) continue; const a = _v.copy(s.pos).sub(this.player.pos).normalize().angleTo(f); if (a < ba) { ba = a; best = s; } }
     if (best) this.target = best;
   }
   nearPlanet() { return this.planets.find(pl => pl.pos.distanceTo(this.player.pos) < pl.radius + 900); }
   findInteract() {
     const p = this.player;
     for (const st of this.stations) if (st.pos.distanceTo(p.pos) < st.radius + 260) return { type: 'dock', st };
+    for (const sig of this.signals) if (sig.mesh && sig.pos.distanceTo(p.pos) < 320) return { type: 'scan', sig };
     for (const s of this.ships) {
-      if (s.isPlayer || !s.alive) continue;
+      if (s.isPlayer || s.ally || !s.alive) continue;
       const d = s.pos.distanceTo(p.pos);
       if (d < s.radius + 140) {
         if (s.disabled) return { type: 'board', ship: s };
@@ -463,7 +491,9 @@ export class SpaceMode {
       if (this.player.vel.length() > 120) return g.ui.toast('Match speed to board (slow down)', '#ff7a5a');
       g.board(this, it.ship, false);
     } else if (it.type === 'hail') g.ui.hail(this, it.ship);
+    else if (it.type === 'scan' && !this.scan) { this.scan = { sig: it.sig, t: 0 }; g.ui.toast('Scanning anomaly… hold position', '#b766ff'); }
   }
+  spawnWingmenNow() { spawnWingmen(this, Ship); }
   removeShip(s) { s.alive = false; this.scene.remove(s.mesh); disposeTree(s.mesh); }
 
   updateAI(s, dt) {
@@ -471,6 +501,10 @@ export class SpaceMode {
     s.think -= dt;
     if (s.think <= 0) {
       s.think = 0.4 + Math.random() * 0.3;
+      if (s.ally) {
+        s.target = wingTarget(this, s);
+        s.state = s.target ? 'attack' : 'formation';
+      } else
       // find target
       if (!s.target || !s.target.alive || s.target.disabled || s.target.pos.distanceTo(s.pos) > 4000) {
         s.target = null;
@@ -482,8 +516,11 @@ export class SpaceMode {
         }
         s.target = best; s.state = best ? 'attack' : (s.role === 'trader' ? 'trade' : 'patrol');
       }
-      if (s.hull < s.st.hullMax * 0.18 && s.role !== 'raid' && s.state === 'attack') s.state = 'flee';
+      if (s.hull < s.st.hullMax * 0.18 && !s.ally && !s.turrets && s.role !== 'raid' && s.state === 'attack') s.state = 'flee';
+      if (s.ally && s.target && s.target.pos.distanceTo(this.player.pos) > 3200) { s.target = null; s.state = 'formation'; }
     }
+    if (s.state === 'formation') { flyFormation(this, s, dt); return; }
+    if (s.state === 'attack' && s.target && s.turrets) { this.capitalAttack(s, dt); return; }
     if (s.state === 'attack' && s.target) {
       const t = s.target;
       const w = s.st.weapons[0];
@@ -513,6 +550,7 @@ export class SpaceMode {
       if (s.target && s.pos.distanceTo(s.target.pos) > 3500) { this.removeShip(s); }
     } else {
       // patrol / trade
+      if (s.role === 'distress') { s.throttle = 0; s.boosting = false; return; }
       if (!s.waypoint || s.pos.distanceTo(s.waypoint) < 300) {
         if (s.role === 'trader' && this.stations.length && Math.random() < 0.5) {
           const st = this.rng.pick(this.stations); s.waypoint = st.pos.clone(); s.docking = st;
@@ -522,6 +560,35 @@ export class SpaceMode {
       s.steerToward(_v.copy(s.waypoint).sub(s.pos).normalize(), dt, 0.6);
       s.throttle = 0.55; s.boosting = false;
     }
+  }
+  // Capital ships turn slowly but their turrets track and fire independently.
+  capitalAttack(s, dt) {
+    const t = s.target, dist = t.pos.distanceTo(s.pos);
+    const want = _v.copy(t.pos).sub(s.pos).normalize();
+    if (dist < 700) want.negate();
+    s.steerToward(want, dt); s.throttle = dist > 1400 ? 0.8 : 0.35; s.boosting = false;
+    const R = s.radius;
+    s.st.weapons.forEach((wi, i) => {
+      for (let k = 0; k < s.turrets; k += s.st.weapons.length) {
+        const idx = i * 8 + k;
+        if ((s.cool[idx] || 0) > 0) continue;
+        s.cool[idx] = 1 / wi.weapon.rate * (1.4 + Math.random() * 0.8);
+        const tgt = (k % 2 && this.ships.length > 2) ? this.nearestEnemyOf(s) || t : t;
+        if (tgt.pos.distanceTo(s.pos) > wi.weapon.range * 1.15) continue;
+        const o = _v2.set((Math.random() - 0.5) * R * 0.8, R * 0.25, (Math.random() - 0.5) * R * 1.4).applyQuaternion(s.quat).add(s.pos).clone();
+        const aim = this.leadPoint({ pos: o, vel: s.vel }, tgt, wi.weapon.speed).sub(o).normalize();
+        fireWeapon(this.proj, wi, o, aim, s, s.st.weaponMods, s.vel);
+      }
+    });
+    if (s.st.missile && s.missiles > 0 && s.missileCool <= 0 && dist < 2400) {
+      s.missiles--; s.missileCool = 3;
+      fireWeapon(this.proj, s.st.missile, s.pos.clone().add(_v2.set(0, R * 0.4, 0)), _v.copy(t.pos).sub(s.pos).normalize(), s, s.st.weaponMods, s.vel, t);
+    }
+  }
+  nearestEnemyOf(s) {
+    let best = null, bd = 2500;
+    for (const o of this.ships) { if (o === s || !o.alive || o.disabled || !this.canHit(s, o)) continue; if (!o.isPlayer && !o.ally && !factionsAtWar(this.U, s.faction, o.faction) && !s.aggro.has(o)) continue; const d = o.pos.distanceTo(s.pos); if (d < bd) { bd = d; best = o; } }
+    return best;
   }
   collideBodies(s, dt) {
     const sr = this.sunRadius;
@@ -548,6 +615,12 @@ export class SpaceMode {
       if (d < 350 && p.alive) c.pos.lerp(p.pos, Math.min(1, dt * 3 * (1 - d / 400)));
       if (d < 30 + p.radius && p.alive) {
         if (c.contents.item && !this.game.giveItem(c.contents.item)) { c.life = Math.min(c.life, 20); continue; }
+        if (c.contents.cargo) {
+          const got = this.game.addCargo(c.contents.cargo, c.contents.qty);
+          if (got) this.game.ui.toast(`+${got} ${c.contents.label}`, '#ffd34d');
+          c.contents.qty -= got; if (c.contents.qty > 0) { c.life = Math.min(c.life, 20); continue; }
+        }
+        if (c.contents.parts) { this.game.player.parts = (this.game.player.parts || 0) + c.contents.parts; this.game.ui.toast(`+${c.contents.parts} parts`, '#9fd8ff'); c.contents.parts = 0; }
         if (c.contents.credits) this.game.addCredits(c.contents.credits);
         c.life = -1;
       }
@@ -575,8 +648,8 @@ export class SpaceMode {
   updateHud() {
     const ui = this.game.ui, p = this.player;
     const it = this.interactTarget;
-    const prompts = { dock: (x) => `E · Dock at ${x.st.data.name}`, board: (x) => `E · Board ${x.ship.name}`, hail: (x) => `E · Hail ${x.ship.name}`, land: (x) => `L · Land on ${x.pl.data.name}` };
-    ui.prompt(it ? prompts[it.type](it) : null);
+    const prompts = { dock: (x) => `E · Dock at ${x.st.data.name}`, board: (x) => `E · ${x.ship.derelict ? 'Explore' : 'Board'} ${x.ship.name}`, hail: (x) => `E · Hail ${x.ship.name}`, land: (x) => `L · Land on ${x.pl.data.name}`, scan: () => 'E · Scan anomaly' };
+    ui.prompt(this.scan ? `Scanning anomaly… ${Math.min(99, Math.round(this.scan.t / 5 * 100))}%` : it ? prompts[it.type](it) : null);
     ui.spaceHud({
       hull: p.hull / p.st.hullMax, shield: p.shield / p.st.shieldMax, energy: p.energy / p.st.energyMax,
       hullTxt: `${Math.ceil(p.hull)}/${Math.round(p.st.hullMax)}`, shieldTxt: `${Math.ceil(p.shield)}/${Math.round(p.st.shieldMax)}`,
@@ -601,12 +674,18 @@ export class SpaceMode {
       if (s.isPlayer || !s.alive) continue;
       const rel = _v.copy(s.pos).sub(p.pos); const d = rel.length(); if (d > R) continue;
       rel.applyQuaternion(inv);
-      blips.push({ x: rel.x / R, z: rel.z / R, y: rel.y / R, c: s.disabled ? '#ffd34d' : this.isHostileToPlayer(s) ? '#ff4d4d' : s.faction !== null ? '#7ee08a' : '#ccc', t: s === this.target });
+      blips.push({ x: rel.x / R, z: rel.z / R, y: rel.y / R, c: s.ally ? '#4dd6ff' : s.disabled ? '#ffd34d' : this.isHostileToPlayer(s) ? '#ff4d4d' : s.faction !== null ? '#7ee08a' : '#ccc', t: s === this.target });
     }
     for (const c of this.crates) { const rel = _v.copy(c.pos).sub(p.pos).applyQuaternion(inv); if (rel.length() < R) blips.push({ x: rel.x / R, z: rel.z / R, y: 0, c: '#ffffff', s: 1 }); }
+    for (const rk of this.rocks) { const rel = _v.copy(rk.pos).sub(p.pos); if (rel.length() < R * 0.6) { rel.applyQuaternion(inv); blips.push({ x: rel.x / R, z: rel.z / R, y: 0, c: '#a08060' }); } }
+    for (const sg of this.signals) { if (sg.resolved && !sg.mesh) continue; const rel = _v.copy(sg.pos).sub(p.pos); if (rel.length() < R) { rel.applyQuaternion(inv); blips.push({ x: rel.x / R, z: rel.z / R, y: 0, c: '#b766ff', t: false }); } }
     ui.radar(blips);
     // nav markers (planets, stations)
     const marks = [];
+    for (const sg of this.signals) if (!sg.resolved || sg.mesh) marks.push({ name: sg.resolved ? '✦ Anomaly' : '? Unknown signal', d: sg.pos.distanceTo(p.pos), s: this.project(sg.pos), c: '#c792ff' });
+    let nearRock = null, nrd = 30000; for (const rk of this.rocks) { const d = rk.pos.distanceTo(p.pos); if (d < nrd) { nrd = d; nearRock = rk; } }
+    if (nearRock && nrd > 600) marks.push({ name: 'Asteroid field', d: nrd, s: this.project(nearRock.pos), c: '#c8a07a' });
+    for (const s of this.ships) if (s.turrets && s.alive && !s.ally) marks.push({ name: '⚠ ' + s.name, d: s.pos.distanceTo(p.pos), s: this.project(s.pos), c: this.isHostileToPlayer(s) ? '#ff6b6b' : '#ffb05a' });
     for (const pl of this.planets) marks.push({ name: pl.data.name, d: pl.pos.distanceTo(p.pos) - pl.radius, s: this.project(pl.pos), c: '#9fd8ff' });
     for (const st of this.stations) marks.push({ name: st.data.name, d: st.pos.distanceTo(p.pos), s: this.project(st.pos), c: '#' + new THREE.Color(this.U.factions[st.data.faction].color).getHexString(), station: true });
     for (const s of this.ships) if (s.missionId && s.alive) marks.push({ name: '◆ ' + s.name, d: s.pos.distanceTo(p.pos), s: this.project(s.pos), c: '#ffd34d' });

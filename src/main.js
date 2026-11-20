@@ -166,6 +166,8 @@ class Game {
     this.player.lastDock = { sysId: this.player.systemId, stationId: station.id };
     for (const m of this.player.missions) if (!m.done && m.type === 'delivery' && m.sysId === this.player.systemId && m.stationId === station.id) this.completeMission(m);
     space.player.vel.set(0, 0, 0); space.player.throttle = 0;
+    let healed = 0; for (const c of this.player.crew) if (c.injured) { c.injured = false; healed++; }
+    if (healed) this.ui.toast(`${healed} wingm${healed > 1 ? 'en' : 'an'} patched up and ready`, '#7ee08a');
     this.ui.sel = null;
     this.ui.openStation(station, space, 'market');
     this.save(false);
@@ -243,6 +245,7 @@ class Game {
       const r = new RNG(Date.now());
       for (let i = 0; i < 2; i++) this.giveItem(genItem(r, { level: ship.level, luck: 0.2 }));
       this.addCredits(80 + ship.level * 50, 'salvage'); this.addXP(30 + ship.level * 8, 'Ship scuttled');
+      const parts = 6 + ship.level * 2 + Math.round(ship.hc.size * 4); this.player.parts = (this.player.parts || 0) + parts; this.ui.toast(`+${parts} parts salvaged`, '#9fd8ff');
       s.proj.explosion(ship.pos.clone(), 60); s.removeShip(ship);
     }
     this.save(false);
@@ -279,6 +282,13 @@ class Game {
     const ld = P.lastDock || { sysId: this.U.startSystem, stationId: 0 };
     this.startSpace(ld.sysId, { type: 'undock', stationId: ld.stationId });
     this.save(false);
+  }
+  // Re-sync wingman ships with the crew roster without waiting for a jump.
+  wingmenChanged() {
+    const s = this.modes[0]; if (!s || s.kind !== 'space') return;
+    for (const w of s.ships.filter(x => x.ally)) s.removeShip(w);
+    s.ships = s.ships.filter(x => x.alive);
+    s.spawnWingmenNow();
   }
   afterMenu() { if (this.mode && this.mode.kind !== 'space' && !this.ui.modal) this.input.requestLock(); }
 

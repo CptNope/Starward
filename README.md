@@ -22,7 +22,9 @@ Made by **[Jeremy Anderson Tech](https://jeremyanderson.tech/)**
 - **Explore a living galaxy.** 140 star systems, seven factions with their own ideologies, territory and wars, and procedural alien species with their own naming languages. Faction fleets patrol, trade, raid and fight each other whether you're there or not.
 - **Leave the ship.** Land on planets with outposts, pirate camps, alien ruins, wildlife, ore to mine and relic vaults. Disable ships, board them, fight the crew, then **claim the ship as your own** or scrap it for salvage.
 - **Loot endlessly.** Gear comes in seven tiers from Scrap to Mythic, with random bonus stats, procedural names and brands. Legendary weapons roll special effects like twin shots, homing, chain lightning and piercing.
-- **Grow your captain.** 35 skills across 7 trees, hireable crew with role bonuses, seven hull classes, shipyards, contracts, a commodity economy and faction reputation.
+- **Meet the unexpected.** Signals pop up as you fly: distress calls, pirate ambushes, derelicts to explore, anomalies to scan, and faction battles. **Dreadnought** capital ships with independent turrets prowl the dangerous systems.
+- **Mine, salvage and craft.** Mine asteroid belts for ore, crystals and relics. Salvage spare gear into parts, then use the station **Workshop** to upgrade your favorite items up to Mythic or reforge their bonuses.
+- **Grow your captain.** 35 skills across 7 trees, hireable crew who give role bonuses or **fly as your wingmen**, eight hull classes, shipyards, contracts, a commodity economy and faction reputation.
 - **Play anywhere.** Keyboard and mouse, gamepad, or touch. Quality adapts to the device automatically.
 
 | | |

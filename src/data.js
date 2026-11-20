@@ -144,7 +144,7 @@ export const SKILLS = [
   // Survival
   { id: 'medic', tree: 'Survival', name: 'Field Medic', max: 5, desc: '+20% healing from medkits', fx: { healPct: 0.2 } },
   { id: 'envsuit', tree: 'Survival', name: 'Environmental Training', max: 5, desc: '-15% hazard damage', fx: { hazard: -0.15 } },
-  { id: 'scavenger', tree: 'Survival', name: 'Scavenger', max: 5, desc: '+20% minerals from deposits', fx: { mining: 0.2 } },
+  { id: 'scavenger', tree: 'Survival', name: 'Scavenger', max: 5, desc: '+20% minerals from deposits and asteroids', fx: { mining: 0.2 } },
 ];
 
 export const BIOMES = [
@@ -186,4 +186,5 @@ export const HULL_CLASSES = [
   { id: 'corvette', name: 'Corvette', hull: 620, shield: 300, speed: 170, turn: 1.0, slots: 3, crew: 4, cargo: 30, size: 2.0, price: 75000 },
   { id: 'freighter', name: 'Freighter', hull: 700, shield: 180, speed: 140, turn: 0.7, slots: 1, crew: 3, cargo: 80, size: 2.4, price: 52000 },
   { id: 'frigate', name: 'Frigate', hull: 1100, shield: 480, speed: 140, turn: 0.75, slots: 4, crew: 6, cargo: 45, size: 3.0, price: 140000 },
+  { id: 'dreadnought', name: 'Dreadnought', hull: 4200, shield: 1800, speed: 95, turn: 0.38, slots: 4, crew: 12, cargo: 120, size: 5.5, price: 950000, turrets: 6, capital: true },
 ];

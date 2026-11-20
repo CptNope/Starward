@@ -1,7 +1,7 @@
 import { TIERS, SKILLS, SKILL_TREES, SLOT_LABELS, HULL_CLASSES, DAMAGE_TYPES, SPECIALS, NPC_ROLES } from './data.js';
 import { shipStats, personalStats, canLearn, repLabel, crewCap, cargoUsed, SHIP_SLOTS, PERSONAL_SLOTS, slotAccepts, xpForLevel, changeRep } from './player.js';
 import { getSystem, dist, npcLine, genNPC } from './gen/universe.js';
-import { genItem, COMMODITIES, itemPower } from './gen/items.js';
+import { genItem, COMMODITIES, itemPower, salvageParts, upgradeCost, reforgeCost, upgradeItem, reforgeItem, canCraft } from './gen/items.js';
 import { genMissions } from './missions.js';
 import { RNG, hashInts } from './rng.js';
 import { PRESETS, detectTier } from './quality.js';
@@ -22,7 +22,7 @@ export function itemHTML(it, cmp) {
     const w = it.weapon, dps = weaponDps(it);
     const cd = cmp && cmp.weapon ? dps - weaponDps(cmp) : null;
     h += `<div class="it-big">${dps.toFixed(1)} <small>DPS</small>${cd !== null ? ` <span class="${cd >= 0 ? 'up' : 'down'}">${cd >= 0 ? '▲' : '▼'} ${Math.abs(cd).toFixed(1)}</span>` : ''}</div>`;
-    h += `<div class="it-row"><span>Damage</span><b>${w.dmg.toFixed(1)}${w.count > 1 ? ' × ' + w.count : ''} <i class="dt" style="color:${hex(DAMAGE_TYPES[w.dtype].color)}">${w.dtype}</i></b></div>`;
+    h += `<div class="it-row"><span>Damage</span><b>${w.dmg.toFixed(1)}${w.count > 1 ? ' × ' + w.count : ''} <i class="dtype" style="color:${hex(DAMAGE_TYPES[w.dtype].color)}">${w.dtype}</i></b></div>`;
     h += `<div class="it-row"><span>Fire rate</span><b>${w.rate.toFixed(2)}/s</b></div>`;
     h += `<div class="it-row"><span>Velocity · Range</span><b>${Math.round(w.speed)} · ${w.range}</b></div>`;
     h += `<div class="it-row"><span>Crit</span><b>${Math.round(w.crit * 100)}% × ${w.critDmg.toFixed(2)}</b></div>`;
@@ -202,7 +202,7 @@ export class UI {
       <div><h3>Ship · ${esc(P.ship.name)} <small>${HULL_CLASSES.find(h => h.id === P.ship.cls).name}</small></h3>${SHIP_SLOTS.map(s => slotRow(s, P.equip[s])).join('')}
       <h3>Personal</h3>${PERSONAL_SLOTS.map(s => slotRow(s, P.pequip[s], true)).join('')}</div>
       <div><h3>Inventory <small>${P.inventory.length}/40</small></h3><div class="invlist">${inv.length ? inv.map(it => `<div class="irow ${this.sel === it.id ? 'sel' : ''}" data-a="sel" data-v="${it.id}" data-tip="${it.id}"><span class="dot" style="background:${TIERS[it.tier].color}"></span><span style="color:${TIERS[it.tier].color}">${esc(it.name)}</span><span class="pw">${kindLabel(it)}</span></div>`).join('') : '<div class="empty pad">Empty. Destroy ships, open caches and explore planets to find gear.</div>'}</div>
-      <h3>Cargo <small>${cargoUsed(P)}/${ss.cargo}</small></h3><div class="cargo">${Object.entries(P.cargo).filter(([, n]) => n > 0).map(([k, n]) => `<span>${COMMODITIES.find(c => c.id === k).name} × ${n}</span>`).join('') || '<span class="empty">Empty hold</span>'}</div></div>
+      <h3>Cargo <small>${cargoUsed(P)}/${ss.cargo} · Parts ${fmt(P.parts || 0)}</small></h3><div class="cargo">${Object.entries(P.cargo).filter(([, n]) => n > 0).map(([k, n]) => `<span>${COMMODITIES.find(c => c.id === k).name} × ${n}</span>`).join('') || '<span class="empty">Empty hold</span>'}</div></div>
       <div class="detail">${selIt ? itemHTML(selIt, this.equippedFor(selIt) !== selIt ? this.equippedFor(selIt) : null) + this.itemActions(selIt) : '<div class="empty pad">Select an item to see details and actions. Hover anything for a quick comparison.</div>'}</div></div>`;
   }
   itemActions(it) {
@@ -230,7 +230,7 @@ export class UI {
     return `<div class="cols3"><div><h3>${esc(P.name)}</h3>${row('Species', esc(sp.name))}${row('Level', P.level)}${row('XP', `${fmt(P.xp)} / ${fmt(xpForLevel(P.level))}`)}${row('Credits', fmt(P.credits))}${row('Ships destroyed / disabled', P.kills)}${row('Ships boarded', P.boarded)}${row('Planetfalls', P.landed)}${row('Systems discovered', P.discovered.length)}
       <h3>Personal</h3>${row('Health', Math.round(ps.hpMax))}${row('Armor', Math.round(ps.armor))}${row('Shield', `${Math.round(ps.pShieldMax)} (+${ps.pShieldRegen.toFixed(1)}/s)`)}${row('Move speed', ps.move.toFixed(1))}${row('Weapon damage', pct(ps.weaponMods.dmg - 1))}${row('Crit bonus', pct(ps.weaponMods.crit))}</div>
       <div><h3>Ship · ${esc(P.ship.name)}</h3>${row('Hull', Math.round(ss.hullMax))}${row('Shield', `${Math.round(ss.shieldMax)} (+${ss.shieldRegen.toFixed(1)}/s)`)}${row('Energy', `${Math.round(ss.energyMax)} (+${ss.energyRegen.toFixed(1)}/s)`)}${row('Speed', Math.round(ss.speed))}${row('Turn rate', ss.turn.toFixed(2))}${row('Jump range', ss.jumpRange.toFixed(1) + ' ly')}${row('Armor', Math.round(ss.armor))}${row('Weapon damage', pct(ss.weaponMods.dmg - 1))}${row('Loot quality', pct(ss.luck))}${row('Cargo', ss.cargo)}${row('Gun slots', ss.slots)}</div>
-      <div><h3>Crew <small>${P.crew.length}/${crewCap(P)}</small></h3>${P.crew.length ? P.crew.map((c, i) => { const role = NPC_ROLES.find(r => r.id === c.role); return `<div class="crew"><b>${esc(c.name)}</b> <small>${esc(c.speciesName)} ${role.name} · Lv ${c.level}</small><div class="muted">Bonus: ${role.crew.label}</div><button data-a="dismiss" data-v="${i}">Dismiss</button></div>`; }).join('') : '<div class="empty pad">No crew. Hire spacers in station bars or recruit them on your travels.</div>'}</div></div>`;
+      <div><h3>Crew <small>${P.crew.length}/${crewCap(P)} · up to 2 wingmen</small></h3>${P.crew.length ? P.crew.map((c, i) => { const role = NPC_ROLES.find(r => r.id === c.role); return `<div class="crew"><b>${esc(c.name)}</b> <small>${esc(c.speciesName)} ${role.name} · Lv ${c.level}</small><div class="muted">Bonus: ${role.crew.label}${c.wing ? ' · <span class="up">flying as wingman</span>' : ''}${c.injured ? ' · <span class="down">recovering (dock to treat)</span>' : ''}</div><button data-a="wing" data-v="${i}" ${!c.wing && P.crew.filter(x => x.wing).length >= 2 ? 'disabled' : ''}>${c.wing ? 'Recall from wing' : 'Fly as wingman'}</button><button data-a="dismiss" data-v="${i}">Dismiss</button></div>`; }).join('') : '<div class="empty pad">No crew. Hire spacers in station bars or recruit them on your travels.</div>'}</div></div>`;
   }
   tab_skills() {
     const P = this.game.player;
@@ -328,7 +328,7 @@ export class UI {
   openStation(station, spaceMode, tab = 'market') {
     this.station = station; this.stationMode = spaceMode; this.stab = tab;
     const g = this.game, U = g.U, f = U.factions[station.faction];
-    const tabs = [['market', 'Gear Market'], ['commodities', 'Commodities'], ['services', 'Services'], ['missions', 'Mission Board'], ['bar', 'Bar'], ...(station.shipyard ? [['shipyard', 'Shipyard']] : []), ['inventory', 'Inventory']];
+    const tabs = [['market', 'Gear Market'], ['commodities', 'Commodities'], ['services', 'Services'], ['missions', 'Mission Board'], ['bar', 'Bar'], ['workshop', 'Workshop'], ...(station.shipyard ? [['shipyard', 'Shipyard']] : []), ['inventory', 'Inventory']];
     const body = tab === 'inventory' ? this.tab_inventory() : this['st_' + tab]();
     this.open('station', `<div class="panel big"><div class="st-head"><span class="sw" style="background:${hex(f.color)}"></span><div><div class="st-name">${esc(station.name)}</div><div class="muted">${esc(f.name)} · ${esc(g.U.systems[g.player.systemId].name)} · ${fmt(g.player.credits)} cr</div></div></div><div class="tabs">${tabs.map(([k, n]) => `<button data-a="stab" data-v="${k}" class="${k === tab ? 'on' : ''}">${n}</button>`).join('')}<button class="undock" data-a="undock">Undock ▸</button></div><div class="pbody">${body}</div></div>`);
   }
@@ -393,10 +393,28 @@ export class UI {
     this.barNpcs = npcs;
     return `<h3>The bar is quiet tonight</h3><div class="bar">${npcs.map(n => { const role = NPC_ROLES.find(r => r.id === n.role); return `<div class="crew"><b>${esc(n.name)}</b> <small>${esc(n.speciesName)} ${role.name} · Lv ${n.level} · ${n.traits.join(', ')}</small><div class="muted">${n.faction !== null ? esc(U.factions[n.faction].name) : 'Independent'} · Crew bonus: ${role.crew.label}</div><button data-a="bartalk" data-v="${n.id}">Talk</button><button data-a="hire" data-v="${n.id}" ${P.credits >= n.hireCost && P.crew.length < crewCap(P) ? '' : 'disabled'}>Hire · ${fmt(n.hireCost)} cr</button></div>`; }).join('')}</div><div class="muted pad">Crew ${P.crew.length}/${crewCap(P)}. Bigger hulls and the Leadership skill hold more crew.</div>`;
   }
+  st_workshop() {
+    const P = this.game.player; P.parts = P.parts || 0;
+    const eq = [...SHIP_SLOTS.map(s => P.equip[s]), ...PERSONAL_SLOTS.map(s => P.pequip[s])].filter(Boolean);
+    const inv = P.inventory.filter(canCraft).sort((a, b) => b.tier - a.tier || b.level - a.level);
+    const row = (it, tag) => `<div class="irow ${this.sel === it.id ? 'sel' : ''}" data-a="sel" data-v="${it.id}" data-tip="${it.id}"><span class="dot" style="background:${TIERS[it.tier].color}"></span><span style="color:${TIERS[it.tier].color}">${esc(it.name)}</span><span class="pw">${tag}</span></div>`;
+    const it = this.sel ? this.findItem(this.sel) : null;
+    let acts = '';
+    if (it && canCraft(it)) {
+      const equipped = eq.includes(it), up = upgradeCost(it), rf = reforgeCost(it), maxed = it.tier >= TIERS.length - 1;
+      acts = `<div class="ws">
+        <div class="svc"><b>Upgrade to ${maxed ? '—' : `<span style="color:${TIERS[it.tier + 1].color}">${TIERS[it.tier + 1].name}</span>`}</b><span>Stronger stats, +1 bonus${it.weapon && it.tier >= 4 ? ', special effect' : ''}</span><button data-a="wup" ${!maxed && P.parts >= up.parts && P.credits >= up.credits ? '' : 'disabled'}>${maxed ? 'Max tier' : `${up.parts} parts · ${fmt(up.credits)} cr`}</button></div>
+        <div class="svc"><b>Reforge</b><span>Re-roll its bonus stats</span><button data-a="wref" ${P.parts >= rf.parts && P.credits >= rf.credits ? '' : 'disabled'}>${rf.parts} parts · ${fmt(rf.credits)} cr</button></div>
+        <div class="svc"><b>Salvage</b><span>${equipped ? 'Unequip it first' : 'Break it down for parts'}</span><button class="danger" data-a="wsalv" ${equipped ? 'disabled' : ''}>+${salvageParts(it)} parts</button></div></div>`;
+    }
+    return `<div class="cols3"><div><h3>Equipped</h3><div class="invlist">${eq.map(x => row(x, 'equipped')).join('')}</div></div>
+      <div><h3>Inventory</h3><div class="invlist">${inv.map(x => row(x, '+' + salvageParts(x) + ' parts')).join('') || '<div class="empty pad">No gear to work on.</div>'}</div>${inv.some(x => x.tier <= 1) ? '<button data-a="wsalvall">Salvage all Scrap & Common</button>' : ''}</div>
+      <div class="detail"><div class="parts">Parts: <b>${fmt(P.parts)}</b></div>${it ? itemHTML(it) + acts : '<div class="empty pad">Select a piece of gear. Salvage spare loot into parts, then spend parts to upgrade the gear you love or reforge its bonuses.</div>'}</div></div>`;
+  }
   st_shipyard() {
     const g = this.game, P = g.player, st = this.station;
     const cur = HULL_CLASSES.find(h => h.id === P.ship.cls); const trade = Math.round(cur.price * 0.45);
-    const r = new RNG(st.seed); const avail = HULL_CLASSES.filter(() => r.chance(0.7));
+    const r = new RNG(st.seed); const avail = HULL_CLASSES.filter(h => h.capital ? r.chance(0.12) : r.chance(0.7));
     if (!avail.length) avail.push(HULL_CLASSES[1]);
     return `<h3>Shipyard <small>Trade-in value of your ${cur.name}: ${fmt(trade)} cr</small></h3><table class="tbl"><tr><th>Hull</th><th>Hull</th><th>Shield</th><th>Speed</th><th>Turn</th><th>Guns</th><th>Crew</th><th>Cargo</th><th>Price</th><th></th></tr>${avail.map(h => { const cost = Math.max(0, h.price - trade); return `<tr class="${h.id === cur.id ? 'cur' : ''}"><td><b>${h.name}</b></td><td>${h.hull}</td><td>${h.shield}</td><td>${h.speed}</td><td>${h.turn}</td><td>${h.slots}</td><td>${h.crew}</td><td>${h.cargo}</td><td>${fmt(cost)}</td><td>${h.id === cur.id ? 'Current' : `<button data-a="buyship" data-v="${h.id}" ${P.credits >= cost ? '' : 'disabled'}>Buy</button>`}</td></tr>`; }).join('')}</table><div class="muted pad">Your gear moves to the new hull. Guns beyond the new hull's slots go to your inventory. You can also capture ships by disabling and boarding them.</div>`;
   }
@@ -501,7 +519,8 @@ UI.prototype.handlers = {
   usechip() { const g = this.game, P = g.player; const it = P.inventory.find(i => i.id === this.sel); if (!it) return; const sk = SKILLS.find(s => s.id === it.skill); if ((P.skills[sk.id] || 0) >= sk.max) return this.toast(`${sk.name} already mastered — sell the chip`, '#ff7a5a'); P.skills[sk.id] = (P.skills[sk.id] || 0) + 1; P.inventory = P.inventory.filter(i => i !== it); this.toast(`Learned ${sk.name} rank ${P.skills[sk.id]}`, '#b766ff'); g.statsChanged(); this.sel = null; this.refreshShopAware(); },
   usemed() { const g = this.game, P = g.player; const it = P.inventory.find(i => i.id === this.sel); if (!it) return; P.hp = 1; P.inventory = P.inventory.filter(i => i !== it); if (g.mode && g.mode.me) g.mode.me.hp = g.mode.ps.hpMax; this.toast('Health restored', '#7ee08a'); this.sel = null; this.refreshShopAware(); },
   learn(id) { const g = this.game, P = g.player; const sk = SKILLS.find(s => s.id === id); if (P.skillPoints > 0 && canLearn(P, sk)) { P.skillPoints--; P.skills[id] = (P.skills[id] || 0) + 1; g.audio.loot(4); g.statsChanged(); } this.openMenu('skills'); },
-  dismiss(i) { this.game.player.crew.splice(+i, 1); this.game.statsChanged(); this.openMenu('character'); },
+  wing(i) { const P = this.game.player, c = P.crew[+i]; if (!c) return; if (!c.wing && P.crew.filter(x => x.wing).length >= 2) return; c.wing = !c.wing; this.toast(c.wing ? `${c.name} will fly as your wingman (from your next launch or jump)` : `${c.name} recalled`, '#9fd8ff'); this.game.wingmenChanged(); this.openMenu('character'); },
+  dismiss(i) { this.game.player.crew.splice(+i, 1); this.game.statsChanged(); this.game.wingmenChanged(); this.openMenu('character'); },
   abandon(id) { const P = this.game.player; P.missions = P.missions.filter(m => m.id !== id); this.refresh(); },
   accept(id) { const P = this.game.player; if (P.missions.filter(m => !m.done).length >= 5) return this.toast('Contract limit reached (5)', '#ff7a5a'); const m = this.board.find(x => x.id === id); if (m) { P.missions.push(m); this.toast(`Accepted: ${m.title}`, '#ffd34d'); } this.refresh(); },
   guide(v) { this.guideSec = v; if (this.modal === 'menu') this.openMenu('guide'); else this.openGuide(v); const b = $('.gbody', this.overlay); if (b) b.scrollTop = 0; },
@@ -524,6 +543,10 @@ UI.prototype.handlers = {
   save() { this.game.save(true); },
   bartalk(id) { const n = this.barNpcs.find(x => x.id === id); const r = new RNG(Date.now()); const l = npcLine(this.game.U, n, r, this.game.U.systems[this.game.player.systemId].name); this.toast(`${n.name}: “${l.greet} ${l.rumor}”`, '#cfe6ff'); },
   hire(id) { const g = this.game, P = g.player; const n = this.barNpcs.find(x => x.id === id); if (!n || P.credits < n.hireCost || P.crew.length >= crewCap(P)) return; g.addCredits(-n.hireCost); P.crew.push(n); g.statsChanged(); this.toast(`${n.name} joined your crew`, '#7ee08a'); this.refresh(); },
+  wup() { const g = this.game, P = g.player, it = this.findItem(this.sel); if (!it) return; const c = upgradeCost(it); if (P.parts < c.parts || P.credits < c.credits) return; if (upgradeItem(it, new RNG(Date.now()))) { P.parts -= c.parts; g.addCredits(-c.credits); g.statsChanged(); g.audio.loot(it.tier); this.toast(`Upgraded: ${it.name}`, TIERS[it.tier].color); } this.refresh(); },
+  wref() { const g = this.game, P = g.player, it = this.findItem(this.sel); if (!it) return; const c = reforgeCost(it); if (P.parts < c.parts || P.credits < c.credits) return; if (reforgeItem(it, new RNG(Date.now()))) { P.parts -= c.parts; g.addCredits(-c.credits); g.statsChanged(); this.toast(`Reforged: ${it.name}`, TIERS[it.tier].color); } this.refresh(); },
+  wsalv() { const P = this.game.player, it = P.inventory.find(i => i.id === this.sel); if (!it) return; P.parts = (P.parts || 0) + salvageParts(it); P.inventory = P.inventory.filter(i => i !== it); this.sel = null; this.refresh(); },
+  wsalvall() { const P = this.game.player; let n = 0; P.inventory = P.inventory.filter(i => { if (canCraft(i) && i.tier <= 1) { n += salvageParts(i); return false; } return true; }); P.parts = (P.parts || 0) + n; this.toast(`+${n} parts`, '#9fd8ff'); this.refresh(); },
   buyship(id) { this.game.buyShip(id); this.refresh(); },
   dlg(i) { const b = this.dlgButtons[+i]; if (b && !b.disabled) b.fn(); },
   respawn() { const cb = this.respawnCb; this.modal = null; this.overlay.style.display = 'none'; cb && cb(); },

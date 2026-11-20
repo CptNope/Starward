@@ -22,16 +22,21 @@ const md = `# Starward Player Guide
 3. [Damage types](#damage-types)
 4. [Weapons](#weapons)
 5. [Boarding and capturing ships](#boarding-and-capturing-ships)
-6. [Planets and exploration](#planets-and-exploration)
-7. [Loot and gear](#loot-and-gear)
-8. [Skills](#skills)
-9. [Factions and reputation](#factions-and-reputation)
-10. [Trading and economy](#trading-and-economy)
-11. [Contracts](#contracts)
-12. [Ships and crew](#ships-and-crew)
-13. [Controls](#controls)
-14. [Graphics, saving and troubleshooting](#graphics-saving-and-troubleshooting)
-15. [About](#about)
+6. [Signals and events](#signals-and-events)
+7. [Asteroid mining](#asteroid-mining)
+8. [Capital ships](#capital-ships)
+9. [Wingmen](#wingmen)
+10. [Workshop and crafting](#workshop-and-crafting)
+11. [Planets and exploration](#planets-and-exploration)
+12. [Loot and gear](#loot-and-gear)
+13. [Skills](#skills)
+14. [Factions and reputation](#factions-and-reputation)
+15. [Trading and economy](#trading-and-economy)
+16. [Contracts](#contracts)
+17. [Ships and crew](#ships-and-crew)
+18. [Controls](#controls)
+19. [Graphics, saving and troubleshooting](#graphics-saving-and-troubleshooting)
+20. [About](#about)
 
 ## Getting started
 
@@ -91,6 +96,46 @@ When you knock out a ship, it sometimes ends up **disabled** (shown in gold) ins
 
 You can also **hail** friendly or neutral ships (**E** when close) to hear rumors, trade, visit aboard peacefully, or demand their cargo. Demanding is piracy: it costs reputation, and they may fight back. Your odds improve with Intimidation and level.
 
+## Signals and events
+
+Every system has **unknown signals**, shown as purple **?** markers and radar dots, and new ones appear while you fly. Get within about 2.5 km to find out what they are:
+
+${t(['Signal', 'What happens'], [['Distress call', 'A freighter under pirate attack. Save it for credits, XP, reputation with its faction and sometimes gear.'], ['Ambush', 'The distress call was bait. Pirates jump in around you.'], ['Derelict', 'An abandoned ship to explore (**E**) for extra caches. A few scavengers may be aboard. Scuttle it on the way out for parts.'], ['Anomaly', 'Fly within 300 m, press **E** and hold position for 5 seconds. Rewards: XP plus a relic, datachip, high-tier gear or parts.'], ['Battle', 'Two factions at war fighting it out. Watch, pick a side, or loot what is left.']])}
+Signals aren't saved: every visit to a system rolls new ones.
+
+## Asteroid mining
+
+Systems with an asteroid belt have mineable rocks, marked **Asteroid field** on the HUD and shown as brown radar dots. Shoot them; kinetic and explosive weapons break rock fastest.
+
+${t(['Rock', 'Drops'], [['Grey-brown', 'Raw Ore'], ['Glowing violet', 'Void Crystals'], ['Gold (rare)', 'Xeno Relics']])}
+Fly through the cargo crate to collect it. Some rocks also give Workshop parts. **Scavenger** increases the yield.
+
+## Capital ships
+
+**Dreadnoughts** prowl dangerous systems (threat 4+), usually with escorts. They turn slowly, but six independent turrets track everything around them, and many carry missile racks. Stay mobile, strip shields with ion or energy weapons, and bring wingmen.
+
+Their huge hull makes them hard to disable, but if you manage it you can board and claim one. Destroying one drops a pile of high-quality loot. A ⚠ marker shows where they are.
+
+## Wingmen
+
+Any two crew members can **fly as wingmen**. Open the **Character** tab (**I** → Character) and choose **Fly as wingman**.
+
+- **Ships:** pilots fly interceptors, gunners and soldiers fly gunships, and everyone else flies fighters.
+- **Behavior:** wingmen hold formation, attack whatever you're fighting, defend you, and keep up through cruise and jumps. Their kills count as yours.
+- **Losses:** a wingman whose ship is destroyed ejects, and is ready again the next time you dock.
+
+## Workshop and crafting
+
+Every station has a **Workshop** that runs on **parts**. You get parts by salvaging gear you don't need (better and higher-level items give more), scuttling boarded ships and derelicts, mining, and scanning anomalies.
+
+| Action | Effect |
+|---|---|
+| **Upgrade** | Raises an item one tier: stronger base stats, stronger bonuses, plus one new bonus. Weapons gain special effects at Legendary and Mythic. |
+| **Reforge** | Re-rolls which bonuses an item has and how strong they are. |
+| **Salvage** | Breaks an unequipped item down into parts. |
+
+Equipped gear can be upgraded and reforged in place. Both cost parts plus some credits, and the cost rises with tier and level.
+
 ## Planets and exploration
 
 Fly within range of a planet and press **L** to land. Terrain, props, outposts, wildlife and loot are all generated from the planet's seed.
@@ -148,7 +193,7 @@ You can hold five contracts at once. Targets show as gold diamonds on the galaxy
 ## Ships and crew
 
 ${t(['Hull', 'Hull pts', 'Shield', 'Speed', 'Turn', 'Guns', 'Crew', 'Cargo', 'Price'], HULL_CLASSES.map(h => [`**${h.name}**`, h.hull, h.shield, h.speed, h.turn, h.slots, h.crew, h.cargo, `${h.price.toLocaleString('en-US')} cr`]))}
-Buy hulls at station shipyards (your old ship is traded in for 45% of its price) or capture them by boarding.
+Buy hulls at station shipyards (your old ship is traded in for 45% of its price) or capture them by boarding. Dreadnoughts are rarely for sale.
 
 **Crew** give passive bonuses that grow with their level. Leadership adds crew slots and strengthens bonuses.
 

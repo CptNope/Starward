@@ -2,7 +2,7 @@
 import { TIERS, DAMAGE_TYPES, BIOMES, HULL_CLASSES, SKILLS, SKILL_TREES, SPECIALS, NPC_ROLES, IDEOLOGIES } from './data.js';
 import { COMMODITIES } from './gen/items.js';
 
-export const VERSION = '0.2.0';
+export const VERSION = '0.3.0';
 export const LINKS = {
   site: 'https://jeremyanderson.tech/',
   book: 'https://jeremyanderson.tech/book-a-call/',
@@ -41,6 +41,30 @@ export const GUIDE = [
     <p>When the ship is clear, head back to the airlock and choose:</p>
     <ul><li><b>Claim it</b> — it becomes your ship (your gear moves over; its guns go to your inventory).</li><li><b>Scuttle it</b> — salvage two pieces of gear, credits and XP.</li><li><b>Leave</b> — it stays adrift.</li></ul>
     <p>You can also <b>hail</b> friendly or neutral ships (<kbd>E</kbd> when close) to hear rumors, trade with them, visit aboard peacefully or demand their cargo. Demanding is piracy: it costs reputation, and they may fight back.</p>` },
+  { id: 'signals', title: 'Signals & events', html: () => `
+    <p>Every system has <b>unknown signals</b> (purple <b>?</b> markers and radar dots), and new ones appear while you fly. Get within about 2.5 km to find out what they are:</p>
+    <ul><li><b>Distress call</b> — a freighter under pirate attack. Save it for credits, XP, reputation with its faction and sometimes gear.</li>
+    <li><b>Ambush</b> — the distress call was bait. Pirates jump in around you.</li>
+    <li><b>Derelict</b> — an abandoned ship you can explore (<kbd>E</kbd>) for extra caches. A few scavengers may be aboard. Scuttle it on the way out for parts.</li>
+    <li><b>Anomaly</b> — fly within 300 m, press <kbd>E</kbd> and hold position for 5 seconds to scan it. Rewards: XP plus a relic, datachip, high-tier gear or parts.</li>
+    <li><b>Battle</b> — two factions at war fighting it out. Watch, pick a side, or loot what's left.</li></ul>
+    <p>Signals are never saved: every visit to a system rolls new ones.</p>` },
+  { id: 'mining', title: 'Asteroid mining', html: () => `
+    <p>Systems with an asteroid belt have mineable rocks, marked <b>Asteroid field</b> on your HUD and shown as brown radar dots. Shoot them; kinetic and explosive weapons break rock fastest.</p>
+    <ul><li><b>Grey-brown rocks</b> drop Raw Ore.</li><li><b>Glowing violet rocks</b> drop Void Crystals.</li><li><b>Gold rocks</b> are rare and drop Xeno Relics.</li></ul>
+    <p>Fly through the cargo crate to collect it. Some rocks also give parts for the Workshop. The <b>Scavenger</b> skill increases the yield. Sell ore where it's in demand.</p>` },
+  { id: 'capital', title: 'Capital ships', html: () => `
+    <p><b>Dreadnoughts</b> prowl dangerous systems (threat 4+), usually with escorts. They turn slowly, but six independent turrets track everything around them, and many carry missile racks.</p>
+    <p>Stay mobile, strip shields with ion or energy weapons, and bring wingmen. Their huge hull makes them hard to disable, but if you manage it you can board and claim one. Destroying one drops a pile of high-quality loot. A ⚠ marker shows where they are.</p>` },
+  { id: 'wingmen', title: 'Wingmen', html: () => `
+    <p>Any two crew members can <b>fly as wingmen</b>. Open <b>Character</b> (<kbd>I</kbd> → Character) and choose <b>Fly as wingman</b>. They launch in their own ships and hold formation beside you. Pilots fly interceptors, gunners and soldiers fly gunships, and everyone else flies fighters.</p>
+    <p>Wingmen attack whatever you're fighting, defend you from anything hostile, and keep up through cruise and jumps. Their kills count as yours. If a wingman's ship is destroyed they eject; they're patched up and ready again the next time you dock.</p>` },
+  { id: 'workshop', title: 'Workshop & crafting', html: () => `
+    <p>Every station has a <b>Workshop</b>. It runs on <b>parts</b>, which you get by:</p>
+    <ul><li><b>Salvaging</b> gear you don't need. Better and higher-level items give more parts.</li><li>Scuttling boarded ships and derelicts.</li><li>Mining rocks and scanning anomalies.</li></ul>
+    <p>Spend parts (and some credits) to:</p>
+    <ul><li><b>Upgrade</b> an item one tier: stronger base stats, stronger bonuses, plus one new bonus. Weapons gain special effects at Legendary and Mythic.</li><li><b>Reforge</b> an item to re-roll which bonuses it has and how strong they are.</li></ul>
+    <p>Equipped gear can be upgraded and reforged in place. Unequip an item before salvaging it. You can turn a weapon you love into a Mythic.</p>` },
   { id: 'planets', title: 'Planets & exploration', html: () => `
     <p>Fly within range of a planet and press <kbd>L</kbd> to land. Every planet is generated from its seed: terrain, props, outposts, wildlife and loot.</p>
     ${table(['Biome', 'Hazard'], BIOMES.map(b => [`<span class="sw" style="background:${hex(b.ground[0])}"></span> ${b.name}`, b.hazard ? `${b.hazard} (drains shields)` : 'None']))}

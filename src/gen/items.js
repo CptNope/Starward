@@ -46,35 +46,98 @@ export function genItem(r, opts = {}) {
     if (kind === 'implant' && Object.keys(item.stats).length === 0) item.stats.crit = round(0.02 * T.mult, 'crit');
   }
 
+  item.core = { weapon: item.weapon ? { ...item.weapon } : null, stats: { ...item.stats } };
   // Affixes
   const pool = AFFIXES.filter(a => a.cats.includes(kind));
   const nAff = Math.min(pool.length, T.affixes + (r.chance(0.25) ? 1 : 0) - (tier === 1 && r.chance(0.5) ? 1 : 0));
   const chosen = r.shuffle(pool.slice()).slice(0, Math.max(0, nAff));
-  for (const a of chosen) {
-    const scale = a.pct ? T.mult * (1 + (level - 1) * 0.02) : m;
-    let val = a.v * scale * r.range(0.75, 1.25);
-    val = round(val, a.stat, a.pct);
-    if (a.round) val = Math.max(1, Math.round(val));
-    item.affixes.push({ id: a.id, stat: a.stat, value: val, label: a.label, pct: !!a.pct });
-    applyAffix(item, a.stat, val);
-  }
+  for (const a of chosen) item.affixes.push(rollAffix(a, tier, level, r));
   // Specials for legendary+ weapons
-  if (item.weapon && tier >= 5) {
-    const n = tier === 6 ? 2 : 1;
-    const sp = r.shuffle(SPECIALS.slice()).slice(0, n);
-    for (const s of sp) {
-      item.specials.push(s.id);
-      if (s.id === 'twin') item.weapon.count += 1;
-      if (s.id === 'homing') item.weapon.homing = Math.max(item.weapon.homing, 1.6);
-      if (s.id === 'aoe') item.weapon.aoe = Math.max(item.weapon.aoe, kind === 'pweapon' ? 4 : 60);
-      if (s.id === 'pierce') item.weapon.pierce = 2;
-      if (s.id === 'chain') item.weapon.chain = 1;
-      if (s.id === 'overload') item.weapon.overload = 0.5;
-    }
-  }
+  if (item.weapon && tier >= 5) item.specials = r.shuffle(SPECIALS.slice()).slice(0, tier === 6 ? 2 : 1).map(s => s.id);
+  rebuild(item);
   item.name = nameItem(r, item, chosen);
-  item.value = Math.round((60 + level * 22) * Math.pow(T.mult, 2.2) * (item.weapon ? 1.3 : 1));
   return item;
+}
+
+function rollAffix(a, tier, level, r) {
+  const T = TIERS[tier];
+  const scale = a.pct ? T.mult * (1 + (level - 1) * 0.02) : T.mult * levelMult(level);
+  let val = round(a.v * scale * r.range(0.75, 1.25), a.stat, a.pct);
+  if (a.round) val = Math.max(1, Math.round(val));
+  return { id: a.id, stat: a.stat, value: val, label: a.label, pct: !!a.pct };
+}
+
+// Recompute an item's final numbers from its core + affixes + specials.
+export function rebuild(item) {
+  const c = item.core;
+  if (c) { if (c.weapon) item.weapon = { ...c.weapon }; item.stats = { ...c.stats }; }
+  for (const af of item.affixes) applyAffix(item, af.stat, af.value);
+  const w = item.weapon;
+  if (w) for (const id of item.specials) {
+    if (id === 'twin') w.count += 1;
+    if (id === 'homing') w.homing = Math.max(w.homing, 1.6);
+    if (id === 'aoe') w.aoe = Math.max(w.aoe, item.kind === 'pweapon' ? 4 : 60);
+    if (id === 'pierce') w.pierce = 2;
+    if (id === 'chain') w.chain = 1;
+    if (id === 'overload') w.overload = 0.5;
+  }
+  item.value = Math.round((60 + item.level * 22) * Math.pow(TIERS[item.tier].mult, 2.2) * (item.weapon ? 1.3 : 1));
+  return item;
+}
+
+// Items saved before v0.3 have no core: rebuild one by undoing their affixes.
+export function ensureCore(item) {
+  if (item.core || !GEAR_KINDS.includes(item.kind)) return !!item.core;
+  const core = { weapon: item.weapon ? { ...item.weapon } : null, stats: { ...item.stats } };
+  const w = core.weapon;
+  for (const af of item.affixes) {
+    const v = af.value;
+    if (w) {
+      if (af.stat === 'dmgPct') w.dmg /= 1 + v; else if (af.stat === 'ratePct') w.rate /= 1 + v; else if (af.stat === 'crit') w.crit -= v;
+      else if (af.stat === 'critDmg') w.critDmg -= v; else if (af.stat === 'velPct') w.speed /= 1 + v; else if (af.stat === 'effPct') w.energy /= 1 + v;
+      else if (af.stat === 'magPct') w.mag = Math.max(1, Math.round(w.mag / (1 + v))); else if (af.stat === 'reloadPct') w.reload /= 1 + v; else if (af.stat === 'leech') w.leech -= v;
+    } else core.stats[af.stat] = (core.stats[af.stat] || 0) - v;
+  }
+  if (w && item.specials.includes('twin')) w.count = Math.max(1, w.count - 1);
+  item.core = core;
+  return true;
+}
+
+const affixDefs = (item) => item.affixes.map(a => AFFIXES.find(x => x.id === a.id)).filter(Boolean);
+export const salvageParts = (it) => Math.max(1, Math.round(Math.pow(it.tier + 1, 1.7) * (1 + it.level * 0.08)));
+export const upgradeCost = (it) => ({ parts: Math.round(8 * Math.pow(it.tier + 1, 1.8) * (1 + it.level * 0.05)), credits: Math.round(it.value * 0.6) });
+export const reforgeCost = (it) => ({ parts: Math.round(3 * (it.tier + 1) * (1 + it.level * 0.05)), credits: Math.round(it.value * 0.25) });
+export const canCraft = (it) => GEAR_KINDS.includes(it.kind);
+
+// Raise an item one tier: stronger core, scaled bonuses, one new bonus, and specials at Legendary+.
+export function upgradeItem(item, r) {
+  if (!canCraft(item) || item.tier >= TIERS.length - 1 || !ensureCore(item)) return false;
+  const t0 = item.tier, ratio = TIERS[t0 + 1].mult / TIERS[t0].mult;
+  const c = item.core;
+  if (c.weapon) c.weapon.dmg *= ratio;
+  for (const k of Object.keys(c.stats)) c.stats[k] = round(c.stats[k] * (k === 'jumpRange' ? (1 + (t0 + 1) * 0.35) / (1 + t0 * 0.35) : ratio), k);
+  for (const af of item.affixes) { af.value = round(af.value * ratio, af.stat, af.pct); if (af.stat === 'jumpRange') af.value = Math.max(1, Math.round(af.value)); }
+  item.tier = t0 + 1;
+  const pool = AFFIXES.filter(a => a.cats.includes(item.kind) && !item.affixes.some(x => x.id === a.id));
+  if (pool.length) item.affixes.push(rollAffix(r.pick(pool), item.tier, item.level, r));
+  if (item.weapon && item.tier >= 5) {
+    const want = item.tier === 6 ? 2 : 1;
+    while (item.specials.length < want) { const sp = r.pick(SPECIALS.filter(s => !item.specials.includes(s.id))); item.specials.push(sp.id); }
+  }
+  rebuild(item);
+  item.name = nameItem(r, item, affixDefs(item));
+  return true;
+}
+
+// Re-roll which bonuses an item has and how strong they are (same count, same tier).
+export function reforgeItem(item, r) {
+  if (!canCraft(item) || !ensureCore(item)) return false;
+  const n = Math.max(1, item.affixes.length);
+  const pool = r.shuffle(AFFIXES.filter(a => a.cats.includes(item.kind))).slice(0, n);
+  item.affixes = pool.map(a => rollAffix(a, item.tier, item.level, r));
+  rebuild(item);
+  item.name = nameItem(r, item, affixDefs(item));
+  return true;
 }
 
 function round(v, stat, pct) {
