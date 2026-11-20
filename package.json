@@ -1,0 +1,14 @@
+{
+  "name": "starward",
+  "version": "0.1.0",
+  "description": "Procedural open-universe space sandbox RPG built with three.js",
+  "scripts": {
+    "build": "esbuild src/main.js --bundle --minify --format=iife --target=es2020 --outfile=dist/game.js && cp index.html dist/",
+    "dev": "esbuild src/main.js --bundle --format=iife --target=es2020 --outfile=dist/game.js --servedir=dist --watch"
+  },
+  "dependencies": {
+    "esbuild": "^0.28.2",
+    "three": "^0.170.0"
+  },
+  "private": true
+}
