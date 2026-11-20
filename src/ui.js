@@ -5,6 +5,7 @@ import { genItem, COMMODITIES, itemPower } from './gen/items.js';
 import { genMissions } from './missions.js';
 import { RNG, hashInts } from './rng.js';
 import { PRESETS, detectTier } from './quality.js';
+import { guideHTML, aboutHTML, VERSION, LINKS } from './guide.js';
 
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -70,8 +71,8 @@ export class UI {
     this.last = {};
     this.hud.style.display = m === 'menu' ? 'none' : '';
     $('#hint').innerHTML = m === 'space'
-      ? '<b>Mouse</b> steer · <b>W/S</b> throttle · <b>Shift</b> boost · <b>LMB/Space</b> fire · <b>RMB/F</b> missile · <b>T</b> target · <b>C</b> cruise · <b>E</b> interact · <b>L</b> land · <b>M</b> map · <b>I</b> inventory · <b>K</b> skills · <b>Esc</b> pause'
-      : '<b>WASD</b> move · <b>Mouse</b> look · <b>LMB</b> fire · <b>R</b> reload · <b>1/2</b> weapons · <b>Space</b> jump · <b>Shift</b> sprint · <b>E</b> interact · <b>H</b> medkit · <b>I</b> inventory · <b>Esc</b> pause';
+      ? '<b>Mouse</b> steer · <b>W/S</b> throttle · <b>Shift</b> boost · <b>LMB/Space</b> fire · <b>RMB/F</b> missile · <b>T</b> target · <b>C</b> cruise · <b>E</b> interact · <b>L</b> land · <b>M</b> map · <b>I</b> inventory · <b>K</b> skills · <b>G</b> guide · <b>Esc</b> pause'
+      : '<b>WASD</b> move · <b>Mouse</b> look · <b>LMB</b> fire · <b>R</b> reload · <b>1/2</b> weapons · <b>Space</b> jump · <b>Shift</b> sprint · <b>E</b> interact · <b>H</b> medkit · <b>I</b> inventory · <b>G</b> guide · <b>Esc</b> pause';
     this.navMarkers([]); this.worldBars([]); this.target(null);
   }
   toast(msg, color = '#e6f4ff') {
@@ -182,7 +183,7 @@ export class UI {
   // ---------------- Main menu (tabs) ----------------
   openMenu(tab = this.tab) {
     this.tab = tab;
-    const tabs = [['inventory', 'Inventory'], ['character', 'Character'], ['skills', 'Skills'], ['missions', 'Missions'], ['factions', 'Factions'], ['galaxy', 'Galaxy Map']];
+    const tabs = [['inventory', 'Inventory'], ['character', 'Character'], ['skills', 'Skills'], ['missions', 'Missions'], ['factions', 'Factions'], ['galaxy', 'Galaxy Map'], ['guide', 'Guide']];
     const body = this['tab_' + tab]();
     this.open('menu', `<div class="panel big"><div class="tabs">${tabs.map(([k, n]) => `<button data-a="tab" data-v="${k}" class="${k === tab ? 'on' : ''}">${n}</button>`).join('')}<button class="x" data-a="close">✕</button></div><div class="pbody">${body}</div></div>`);
     if (tab === 'galaxy') this.drawMap();
@@ -255,6 +256,11 @@ export class UI {
       const owned = U.systems.filter(s => s.owner === f.id).length;
       return `<div class="fac"><div class="fh"><span class="sw" style="background:${hex(f.color)}"></span><b>${esc(f.name)}</b> <small>${f.ideoName} · ${esc(U.species[f.species].name)} · ${owned} systems</small></div><div class="muted">“${esc(f.motto)}”</div><div class="rep"><div class="rb"><i style="left:${(P.rep[f.id] + 100) / 2}%;background:${col}"></i></div><span style="color:${col}">${lab} (${Math.round(P.rep[f.id])})</span></div><div class="rel">${allies.length ? `<span class="up">Allies:</span> ${allies.map(esc).join(', ')}` : ''}${foes.length ? ` <span class="down">At war:</span> ${foes.map(esc).join(', ')}` : ''}</div></div>`;
     }).join('')}</div>`;
+  }
+  tab_guide() { return guideHTML(this.game, this.guideSec); }
+  openGuide(sec = 'start') {
+    this.guideSec = sec;
+    this.open('guide', `<div class="panel big"><div class="tabs"><b class="ttl">Field Guide</b><button class="x" data-a="guideback">✕</button></div><div class="pbody">${guideHTML(this.game, sec)}</div></div>`);
   }
   tab_galaxy() {
     return `<div class="mapwrap"><canvas id="map"></canvas><div id="mapinfo" class="mapinfo"></div><div class="mapzoom"><button data-a="mapz" data-v="1.3">+</button><button data-a="mapz" data-v="0.77">−</button><button data-a="mapz" data-v="home">◎</button></div></div>`;
@@ -452,7 +458,7 @@ export class UI {
   }
   pause() {
     const has = this.game.hasSave();
-    this.open('pause', `<div class="panel dlg"><div class="dn big">Paused</div><div class="acts col"><button data-a="close">Resume</button><button data-a="save">Save game</button><button data-a="controls">Controls</button><button data-a="gfx">Graphics</button><button data-a="quit">Save & quit to title</button></div></div>`);
+    this.open('pause', `<div class="panel dlg"><div class="dn big">Paused</div><div class="acts col"><button data-a="close">Resume</button><button data-a="save">Save game</button><button data-a="openguide" data-v="start">Field guide</button><button data-a="controls">Controls</button><button data-a="gfx">Graphics</button><button data-a="openguide" data-v="about">About</button><button data-a="quit">Save & quit to title</button></div></div>`);
   }
   graphics() {
     const g = this.game, s = g.settings;
@@ -468,14 +474,14 @@ export class UI {
   }
   title() {
     const has = this.game.hasSave();
-    this.open('title', `<div class="title"><div class="logo">STARWARD</div><div class="tag">An open sandbox among procedural stars</div><div class="acts col">${has ? '<button data-a="continue" class="primary">Continue</button>' : ''}<button data-a="newgame" class="${has ? '' : 'primary'}">New game</button><button data-a="controls">Controls</button><button data-a="gfx">Graphics</button></div><div class="muted small foot">Every galaxy, faction, species, planet, NPC, ship and weapon is generated from a seed.</div></div>`);
+    this.open('title', `<div class="title"><div class="logo">STARWARD</div><div class="tag">An open sandbox among procedural stars</div><div class="acts col">${has ? '<button data-a="continue" class="primary">Continue</button>' : ''}<button data-a="newgame" class="${has ? '' : 'primary'}">New game</button><button data-a="openguide" data-v="start">Field guide</button><button data-a="controls">Controls</button><button data-a="gfx">Graphics</button><button data-a="openguide" data-v="about">About</button></div><div class="muted small foot">Every galaxy, faction, species, planet, NPC, ship and weapon is generated from a seed.</div><div class="credit">v${VERSION} · Made by <a href="${LINKS.site}" target="_blank" rel="noopener">Jeremy Anderson Tech</a> · <a href="${LINKS.repo}" target="_blank" rel="noopener">Source on GitHub</a></div></div>`);
   }
   newGameScreen() {
     const seed = this.pendingSeed || Math.floor(Math.random() * 1e6).toString(36).toUpperCase();
     this.pendingSeed = seed;
     const U = this.game.previewUniverse(seed);
     this.open('title', `<div class="panel dlg wide"><div class="dn big">New captain</div><div class="form"><label>Name<input id="ng-name" maxlength="24" value="${esc(this.pendingName || 'Captain Vey')}"></label><label>Universe seed<span class="row"><input id="ng-seed" value="${esc(seed)}"><button data-a="reseed">🎲</button></span></label></div><h3>Species</h3><div class="species">${U.species.map(s => `<button data-a="species" data-v="${s.id}" class="${(this.pendingSpecies || 0) === s.id ? 'on' : ''}">${this.portrait({ species: s.id }, U)}<b>${esc(s.name)}</b><small>${s.head} head · ${s.eyes} eye${s.eyes > 1 ? 's' : ''}${s.horns ? ' · horned' : ''}${s.tail ? ' · tail' : ''}</small></button>`).join('')}</div><h3>Known powers</h3><div class="minifacs">${U.factions.map(f => `<span><i style="background:${hex(f.color)}"></i>${esc(f.name)} <small>${f.ideoName}</small></span>`).join('')}</div><div class="acts"><button data-a="titleback">Back</button><button class="primary" data-a="start">Launch</button></div></div>`);
-    $('#ng-seed').addEventListener('change', (e) => { this.pendingSeed = e.target.value.trim() || 'STARWARD'; this.pendingName = $('#ng-name').value; this.newGameScreen(); });
+    $('#ng-seed').addEventListener('change', (e) => { const v = e.target.value.trim() || 'STARWARD'; if (v === this.pendingSeed) return; this.pendingSeed = v; this.pendingName = $('#ng-name').value; setTimeout(() => { if (this.modal === 'title' && $('#ng-seed')) this.newGameScreen(); }, 0); });
   }
 }
 
@@ -498,6 +504,9 @@ UI.prototype.handlers = {
   dismiss(i) { this.game.player.crew.splice(+i, 1); this.game.statsChanged(); this.openMenu('character'); },
   abandon(id) { const P = this.game.player; P.missions = P.missions.filter(m => m.id !== id); this.refresh(); },
   accept(id) { const P = this.game.player; if (P.missions.filter(m => !m.done).length >= 5) return this.toast('Contract limit reached (5)', '#ff7a5a'); const m = this.board.find(x => x.id === id); if (m) { P.missions.push(m); this.toast(`Accepted: ${m.title}`, '#ffd34d'); } this.refresh(); },
+  guide(v) { this.guideSec = v; if (this.modal === 'menu') this.openMenu('guide'); else this.openGuide(v); const b = $('.gbody', this.overlay); if (b) b.scrollTop = 0; },
+  openguide(v) { this.openGuide(v); },
+  guideback() { if (!this.game.player) this.title(); else this.pause(); },
   mapz(v) { const V = this.mapView; if (!V) return; if (v === 'home') { const h = this.game.U.systems[this.game.player.systemId]; V.cx = h.x; V.cy = h.y; } else V.z = Math.max(3, Math.min(60, V.z * +v)); this.mapRedraw && this.mapRedraw(); },
   mapto(v) { this.mapSel = +v; this.mapView = null; this.openMenu('galaxy'); },
   jump(v) { this.game.jump(+v); },

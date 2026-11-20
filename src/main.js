@@ -54,6 +54,7 @@ class Game {
     addEventListener('keydown', () => this.audio.ensure(), { once: true });
     addEventListener('touchend', () => this.audio.ensure(), { once: true });
     this.fpsEl = document.getElementById('fps');
+    this.texJobs = texJobs; this.getSystem = (id) => getSystem(this.U, id);
     this.buildTitleScene();
     this.ui.title();
     this.saveTimer = 60;
@@ -366,12 +367,12 @@ class Game {
     if (this.mode && !this.jumping) {
       // global hotkeys
       if (!ui.modal || ['menu'].includes(ui.modal)) {
-        const map = { KeyI: 'inventory', Tab: 'inventory', KeyK: 'skills', KeyM: 'galaxy', KeyJ: 'missions' };
+        const map = { KeyI: 'inventory', Tab: 'inventory', KeyK: 'skills', KeyM: 'galaxy', KeyJ: 'missions', KeyG: 'guide' };
         for (const [k, tab] of Object.entries(map)) if (inp.pressed(k)) { if (ui.modal === 'menu' && ui.tab === tab) ui.close(); else { ui.sel = null; ui.openMenu(tab); } }
         if (inp.gpPressed(8)) ui.modal === 'menu' ? ui.close() : ui.openMenu('inventory');
       }
       if (inp.pressed('Escape') || inp.pressed('KeyP') || inp.gpPressed(9)) {
-        if (ui.modal === 'death') { /* wait */ } else if (ui.modal === 'shop') { ui.shopOpen = false; ui.close(); } else if (ui.modal) ui.close(); else ui.pause();
+        if (ui.modal === 'death') { /* wait */ } else if (ui.modal === 'shop') { ui.shopOpen = false; ui.close(); } else if (ui.modal === 'guide') ui.handlers.guideback.call(ui); else if (ui.modal) ui.close(); else ui.pause();
       }
       if (!ui.modal) {
         this.mode.update(dt);
