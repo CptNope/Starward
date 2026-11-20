@@ -3,7 +3,7 @@
   "version": "0.3.0",
   "description": "Procedural open-universe space sandbox RPG built with three.js — by Jeremy Anderson Tech",
   "scripts": {
-    "build": "esbuild src/main.js --bundle --minify --format=iife --target=es2020 --outfile=dist/game.js && cp index.html dist/ && cp docs/images/og.jpg dist/og.jpg",
+    "build": "esbuild src/main.js --bundle --minify --format=iife --target=es2020 --outfile=dist/game.js && cp index.html dist/ && cp docs/images/og.jpg dist/og.jpg && mkdir -p dist/images && cp docs/images/*.jpg dist/images/ && cd dist && rm -f starward-html5.zip && zip -qr starward-html5.zip index.html game.js og.jpg",
     "dev": "esbuild src/main.js --bundle --format=iife --target=es2020 --outfile=dist/game.js --servedir=dist --watch",
     "docs": "esbuild scripts/build-docs.js --bundle --platform=node --format=esm --outfile=scripts/.docs.mjs --log-level=warning && node scripts/.docs.mjs"
   },
