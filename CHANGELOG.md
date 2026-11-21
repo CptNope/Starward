@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0 — 2026-11-21 — Soundtrack
+
+### Added
+- **An original soundtrack.** Seven instrumental tracks, one for each situation: *Starward* (title), *Drift* (flying), *Engage* (space combat), *Dreadnought* (capital-ship fights), *Dockside* (docked at a station), *Groundfall* (planet exploration) and *Breach* (boarding and fights on foot). Made with Suno.
+- Music follows the action: it switches to combat when enemies engage you, to *Dreadnought* when a hostile capital ship is near, and back once things calm down. Tracks crossfade and pick up where they left off.
+- Each track streams the first time it's needed, so the game still starts instantly. Tracks are level-matched so switching never jumps in volume.
+- **Graphics & sound** settings: music and sound effects each have Off, Low, Medium and High, and the screen shows what's playing.
+
 ## 0.3.1 — 2026-11-21 — New character models
 
 ### Changed

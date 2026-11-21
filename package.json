@@ -1,6 +1,6 @@
 {
   "name": "starward",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Procedural open-universe space sandbox RPG built with three.js \u2014 by Jeremy Anderson Tech",
   "scripts": {
     "build": "esbuild src/main.js --bundle --minify --format=iife --target=es2020 --outfile=dist/game.js && cp index.html dist/ && cp docs/images/og.jpg dist/og.jpg && mkdir -p dist/images && cp docs/images/*.jpg dist/images/ && cp -r docs/images/webp dist/images/ && mkdir -p dist/music && (cp music/*.mp3 dist/music/ 2>/dev/null || true) && cd dist && rm -f starward-html5.zip && zip -qr starward-html5.zip index.html game.js og.jpg music",

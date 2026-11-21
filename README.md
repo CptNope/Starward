@@ -91,7 +91,7 @@ Starward is built by **Jeremy Anderson** of **[Jeremy Anderson Tech](https://jer
 - 🛰️ Project page: **[jeremyanderson.tech/project/starward-threejs-space-sandbox-rpg](https://jeremyanderson.tech/project/starward-threejs-space-sandbox-rpg/)**
 - 𝕏 **[@JAndersonTech](https://x.com/JAndersonTech)**
 
-Built with [three.js](https://threejs.org/) and [esbuild](https://esbuild.github.io/).
+Built with [three.js](https://threejs.org/) and [esbuild](https://esbuild.github.io/). The original soundtrack in `music/` (seven instrumental tracks) was made by Jeremy Anderson with [Suno](https://suno.com/).
 
 ## License
 

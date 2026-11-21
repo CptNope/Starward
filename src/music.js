@@ -1,14 +1,15 @@
 // Soundtrack: one looping track per situation, crossfaded. Tracks stream from music/<file>.mp3 and are
 // only fetched the first time they're needed, so the game still opens instantly. A missing file is
-// skipped quietly, which lets tracks be added one at a time.
+// skipped quietly, which lets tracks be added one at a time. `gain` levels each track to about the same
+// loudness (measured median level of the Suno masters, matched to -19 dB).
 export const TRACKS = {
-  title: { file: 'starward-main-theme', name: 'Starward (Main Theme)' },
-  space: { file: 'drift', name: 'Drift' },
-  combat: { file: 'engage', name: 'Engage' },
-  capital: { file: 'dreadnought', name: 'Dreadnought' },
-  station: { file: 'dockside', name: 'Dockside' },
-  ground: { file: 'groundfall', name: 'Groundfall' },
-  breach: { file: 'breach', name: 'Breach' },
+  title: { file: 'starward-main-theme', gain: 1.02, name: 'Starward (Main Theme)' },
+  space: { file: 'drift', gain: 0.85, name: 'Drift' },
+  combat: { file: 'engage', gain: 1.23, name: 'Engage' },
+  capital: { file: 'dreadnought', gain: 0.94, name: 'Dreadnought' },
+  station: { file: 'dockside', gain: 0.82, name: 'Dockside' },
+  ground: { file: 'groundfall', gain: 0.95, name: 'Groundfall' },
+  breach: { file: 'breach', gain: 0.69, name: 'Breach' },
 };
 const FADE = 2.5;      // seconds for a full crossfade
 const COMBAT_HOLD = 7; // keep fight music this long after the last threat
@@ -39,7 +40,7 @@ export class Music {
         if (s.isPlayer || !s.alive || s.disabled || s.ally || !m.isHostileToPlayer(s)) continue;
         const d = s.pos.distanceTo(p.pos);
         const engaged = s.state === 'attack' && (s.target === p || (s.target && s.target.ally));
-        if (s.turrets && s.turrets.length && (d < 1800 || (engaged && d < 3500))) capital = true;
+        if (s.turrets > 0 && (d < 1800 || (engaged && d < 3500))) capital = true;
         if ((engaged && d < 2500) || d < 900) threat = true;
       }
       if (capital) this.capitalT = COMBAT_HOLD; else this.capitalT -= dt;
@@ -58,10 +59,10 @@ export class Music {
     let want = this.pick(dt);
     if (this.missing.has(want)) want = (want === 'capital' && !this.missing.has('combat')) ? 'combat' : null; // fall back, else silence
     this.want = want;
-    const on = this.enabled && this.unlocked, top = this.volume, step = (top / FADE) * dt;
+    const on = this.enabled && this.unlocked, top = this.volume, step = (Math.max(0.3, top) / FADE) * dt;
     if (want && on && !this.els[want]) this.el(want);
     for (const [key, a] of Object.entries(this.els)) {
-      const target = on && key === want && !this.missing.has(key) ? top : 0;
+      const target = on && key === want && !this.missing.has(key) ? Math.min(1, top * (TRACKS[key].gain || 1)) : 0;
       if (a.volume < target) a.volume = Math.min(target, a.volume + step);
       else if (a.volume > target) a.volume = Math.max(target, a.volume - step);
       if (target > 0 && a.paused) a.play().catch(() => {}); // autoplay can refuse until a gesture; we retry next frame
