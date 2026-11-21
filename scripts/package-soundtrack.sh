@@ -28,5 +28,13 @@ for t in "${TRACKS[@]}"; do
     -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" "$dest"
 done
 cp "$COVER" "$DIR/cover.jpg"
-(cd "$OUT" && rm -f "Starward-Soundtrack-$VER.zip" && zip -qr "Starward-Soundtrack-$VER.zip" "Starward Original Soundtrack")
-echo "Packaged $total tracks into $OUT/Starward-Soundtrack-$VER.zip"
+# Web-safe copies for release downloads (GitHub rewrites spaces and brackets in asset names)
+UP="$OUT/upload"; rm -rf "$UP"; mkdir -p "$UP"; n=0
+for t in "${TRACKS[@]}"; do
+  n=$((n + 1)); title="${t#*|}"
+  slug=$(echo "$title" | tr -cd '[:alnum:] ' | tr ' ' '-' | sed 's/--*/-/g')
+  cp "$DIR/$(printf '%02d' "$n") - $title.mp3" "$UP/Starward-OST-$(printf '%02d' "$n")-$slug.mp3"
+done
+cp "$COVER" "$UP/Starward-OST-Cover.jpg"
+(cd "$OUT" && rm -f "Starward-Soundtrack-$VER.zip" && zip -qr "Starward-Soundtrack-$VER.zip" "Starward Original Soundtrack" && mv "Starward-Soundtrack-$VER.zip" upload/)
+echo "Packaged $total tracks; release files are in $OUT/upload"
