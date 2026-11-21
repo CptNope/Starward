@@ -7,6 +7,9 @@ export const LINKS = {
   site: 'https://jeremyanderson.tech/',
   book: 'https://jeremyanderson.tech/book-a-call/',
   play: 'https://cptnope.github.io/Starward/',
+  itch: 'https://cptnope.itch.io/starward',
+  devlog: 'https://cptnope.itch.io/starward/devlog',
+  project: 'https://jeremyanderson.tech/project/starward-threejs-space-sandbox-rpg/',
   repo: 'https://github.com/CptNope/Starward',
   issues: 'https://github.com/CptNope/Starward/issues/new',
   docs: 'https://github.com/CptNope/Starward/blob/main/docs/PLAYER_GUIDE.md',
@@ -120,6 +123,9 @@ export function aboutHTML(g) {
       ${a(LINKS.site, '<b>jeremyanderson.tech</b><small>Website, projects and more games</small>')}
       ${a(LINKS.book, '<b>Book a call</b><small>Want something like this built?</small>')}
       ${a(LINKS.play, '<b>Play Starward</b><small>cptnope.github.io/Starward</small>')}
+      ${a(LINKS.itch, '<b>Starward on itch.io</b><small>Play, rate or donate</small>')}
+      ${a(LINKS.devlog, '<b>Devlog</b><small>Every update, explained</small>')}
+      ${a(LINKS.project, '<b>Project page</b><small>How Starward is built</small>')}
       ${a(LINKS.repo, '<b>Source code</b><small>github.com/CptNope/Starward</small>')}
       ${a(LINKS.issues, '<b>Report a bug</b><small>Open a GitHub issue</small>')}
       ${a(LINKS.docs, '<b>Player guide</b><small>The full guide on GitHub</small>')}

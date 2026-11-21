@@ -8,6 +8,8 @@ Fly, fight, trade, land on planets, board and capture ships, and build a captain
 
 ### [▶ Play now — cptnope.github.io/Starward](https://cptnope.github.io/Starward/)
 
+Also on **[itch.io](https://cptnope.itch.io/starward)**, where you can follow the **[devlog](https://cptnope.itch.io/starward/devlog)** or leave a donation.
+
 [Player guide](docs/PLAYER_GUIDE.md) · [Developer guide](docs/DEVELOPMENT.md) · [Changelog](CHANGELOG.md) · [Report a bug](https://github.com/CptNope/Starward/issues/new/choose)
 
 Made by **[Jeremy Anderson Tech](https://jeremyanderson.tech/)**
@@ -84,7 +86,9 @@ Starward is built by **Jeremy Anderson** of **[Jeremy Anderson Tech](https://jer
 
 - 🌐 Website: **[jeremyanderson.tech](https://jeremyanderson.tech/)**
 - 📅 Want something like this built? **[Book a call](https://jeremyanderson.tech/book-a-call/)**
-- 🎮 Play: **[cptnope.github.io/Starward](https://cptnope.github.io/Starward/)**
+- 🎮 Play: **[cptnope.github.io/Starward](https://cptnope.github.io/Starward/)** or **[on itch.io](https://cptnope.itch.io/starward)**
+- 📝 Devlog: **[cptnope.itch.io/starward/devlog](https://cptnope.itch.io/starward/devlog)**
+- 🛰️ Project page: **[jeremyanderson.tech/project/starward-threejs-space-sandbox-rpg](https://jeremyanderson.tech/project/starward-threejs-space-sandbox-rpg/)**
 - 𝕏 **[@JAndersonTech](https://x.com/JAndersonTech)**
 
 Built with [three.js](https://threejs.org/) and [esbuild](https://esbuild.github.io/).
