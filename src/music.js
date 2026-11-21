@@ -11,6 +11,8 @@ export const TRACKS = {
   ground: { file: 'groundfall', gain: 0.95, name: 'Groundfall' },
   breach: { file: 'breach', gain: 0.69, name: 'Breach' },
 };
+// Builds that ship without the music folder (the itch.io zip) stream it from the GitHub Pages copy.
+const REMOTE = 'https://cptnope.github.io/Starward/music/';
 const FADE = 2.5;      // seconds for a full crossfade
 const COMBAT_HOLD = 7; // keep fight music this long after the last threat
 
@@ -26,7 +28,10 @@ export class Music {
     if (this.els[key]) return this.els[key];
     const a = document.createElement('audio');
     a.src = `music/${TRACKS[key].file}.mp3`; a.loop = true; a.preload = 'auto'; a.volume = 0;
-    a.addEventListener('error', () => { this.missing.add(key); });
+    a.addEventListener('error', () => {
+      if (!a.src.startsWith(REMOTE)) { a.src = REMOTE + TRACKS[key].file + '.mp3'; return; } // local copy missing: try the hosted one
+      this.missing.add(key);
+    });
     return (this.els[key] = a);
   }
   // What should be playing right now?
