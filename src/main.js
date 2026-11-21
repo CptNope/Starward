@@ -11,6 +11,7 @@ import { COMMODITIES } from './gen/items.js';
 import { Input } from './input.js';
 import { UI } from './ui.js';
 import { Audio } from './audio.js';
+import { Music } from './music.js';
 import { SpaceMode } from './space.js';
 import { OnFootMode } from './onfoot.js';
 import { makeGroundEnv } from './ground.js';
@@ -46,10 +47,14 @@ class Game {
     this.touch = new Touch(this); this.input.touchSource = this.touch;
     this.input.onKey = () => { if (this.touch.active) { this.touch.active = false; this.input.touchActive = false; document.body.classList.remove('is-touch'); this.touch.refreshVisible(); } };
     this.audio = new Audio();
+    this.music = new Music(this);
+    if (this.settings.sfxVol !== undefined) this.audio.vol = 0.35 * this.settings.sfxVol;
     this.ui = new UI(this);
     this.modes = [];
     this.clock = new THREE.Clock();
     addEventListener('resize', () => this.resize());
+    // Browsers only allow sound after a user gesture: any click, key or tap unlocks music and effects.
+    for (const ev of ['pointerdown', 'keydown', 'touchend']) addEventListener(ev, () => { this.audio.ensure(); this.music.unlock(); }, { passive: true });
     this.canvas.addEventListener('click', () => { this.audio.ensure(); if (!this.ui.modal && this.mode && !this.touch.active) this.input.requestLock(); });
     addEventListener('keydown', () => this.audio.ensure(), { once: true });
     addEventListener('touchend', () => this.audio.ensure(), { once: true });
@@ -395,6 +400,7 @@ class Game {
       this.title.camera.position.set(Math.sin(t) * 300, 100, 1200); this.title.camera.lookAt(this.title.pl.position);
       this.renderFrame(this.title.scene, this.title.camera);
     } else if (this.mode) this.renderFrame(this.mode.scene, this.mode.camera);
+    this.music.update(raw > 0.25 ? 0.05 : raw);
     inp.endFrame();
   }
 }

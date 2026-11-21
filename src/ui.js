@@ -476,15 +476,18 @@ export class UI {
   }
   pause() {
     const has = this.game.hasSave();
-    this.open('pause', `<div class="panel dlg"><div class="dn big">Paused</div><div class="acts col"><button data-a="close">Resume</button><button data-a="save">Save game</button><button data-a="openguide" data-v="start">Field guide</button><button data-a="controls">Controls</button><button data-a="gfx">Graphics</button><button data-a="openguide" data-v="about">About</button><button data-a="quit">Save & quit to title</button></div></div>`);
+    this.open('pause', `<div class="panel dlg"><div class="dn big">Paused</div><div class="acts col"><button data-a="close">Resume</button><button data-a="save">Save game</button><button data-a="openguide" data-v="start">Field guide</button><button data-a="controls">Controls</button><button data-a="gfx">Graphics & sound</button><button data-a="openguide" data-v="about">About</button><button data-a="quit">Save & quit to title</button></div></div>`);
   }
   graphics() {
     const g = this.game, s = g.settings;
     const opt = (v, label) => `<button data-a="setq" data-v="${v}" class="${String(s.quality) === String(v) ? 'on' : ''}">${label}</button>`;
-    this.open('pause', `<div class="panel dlg"><div class="dn big">Graphics</div><div class="muted">Now running: <b>${PRESETS[g.tier].name}</b> at ${Math.round(g.renderer.getPixelRatio() * 100) / 100}x resolution${s.quality === 'auto' ? ' (picked for this device)' : ''}.</div>
+    const vol = (key, def, off) => [['0', 'Off'], ['0.3', 'Low'], ['0.6', 'Medium'], ['1', 'High']].map(([v, l]) => { const cur = off ? 0 : (s[key] ?? def); return `<button data-a="setvol" data-v="${key}:${v}" class="${Math.abs(cur - +v) < 0.01 ? 'on' : ''}">${l}</button>`; }).join('');
+    this.open('pause', `<div class="panel dlg"><div class="dn big">Graphics & sound</div><div class="muted">Now running: <b>${PRESETS[g.tier].name}</b> at ${Math.round(g.renderer.getPixelRatio() * 100) / 100}x resolution${s.quality === 'auto' ? ' (picked for this device)' : ''}.</div>
       <h3>Quality</h3><div class="seg">${opt('auto', 'Auto')}${opt(0, 'Low')}${opt(1, 'Medium')}${opt(2, 'High')}</div>
       <div class="muted small">Textures, terrain detail and crowd sizes update the next time you enter a system or land.</div>
       <h3>Options</h3><div class="acts col"><button data-a="toggleAuto">Auto-adjust resolution to hold frame rate: ${s.autoQuality ? 'On' : 'Off'}</button><button data-a="toggleBloom">Glow (bloom): ${s.bloom ? 'On' : 'Off'}</button><button data-a="toggleFps">Show FPS: ${s.showFps ? 'On' : 'Off'}</button></div>
+      <h3>Sound</h3><div class="muted small">Music${g.music.nowPlaying() ? `: now playing <b>${g.music.nowPlaying()}</b>` : ''}</div><div class="seg">${vol('musicVol', 0.6, s.music === false)}</div>
+      <div class="muted small">Sound effects</div><div class="seg">${vol('sfxVol', 1, false)}</div>
       <div class="acts"><button data-a="${g.player ? 'pauseback' : 'titleback'}">Back</button></div></div>`);
   }
   controls() {
@@ -492,7 +495,7 @@ export class UI {
   }
   title() {
     const has = this.game.hasSave();
-    this.open('title', `<div class="title"><div class="logo">STARWARD</div><div class="tag">An open sandbox among procedural stars</div><div class="acts col">${has ? '<button data-a="continue" class="primary">Continue</button>' : ''}<button data-a="newgame" class="${has ? '' : 'primary'}">New game</button><button data-a="openguide" data-v="start">Field guide</button><button data-a="controls">Controls</button><button data-a="gfx">Graphics</button><button data-a="openguide" data-v="about">About</button></div><div class="muted small foot">Every galaxy, faction, species, planet, NPC, ship and weapon is generated from a seed.</div><div class="credit">v${VERSION} · Made by <a href="${LINKS.site}" target="_blank" rel="noopener">Jeremy Anderson Tech</a> · <a href="${LINKS.repo}" target="_blank" rel="noopener">Source on GitHub</a></div></div>`);
+    this.open('title', `<div class="title"><div class="logo">STARWARD</div><div class="tag">An open sandbox among procedural stars</div><div class="acts col">${has ? '<button data-a="continue" class="primary">Continue</button>' : ''}<button data-a="newgame" class="${has ? '' : 'primary'}">New game</button><button data-a="openguide" data-v="start">Field guide</button><button data-a="controls">Controls</button><button data-a="gfx">Graphics & sound</button><button data-a="openguide" data-v="about">About</button></div><div class="muted small foot">Every galaxy, faction, species, planet, NPC, ship and weapon is generated from a seed.</div><div class="credit">v${VERSION} · Made by <a href="${LINKS.site}" target="_blank" rel="noopener">Jeremy Anderson Tech</a> · <a href="${LINKS.repo}" target="_blank" rel="noopener">Source on GitHub</a></div></div>`);
   }
   newGameScreen() {
     const seed = this.pendingSeed || Math.floor(Math.random() * 1e6).toString(36).toUpperCase();
@@ -557,6 +560,7 @@ UI.prototype.handlers = {
   toggleFps() { this.game.settings.showFps = !this.game.settings.showFps; this.game.persistSettings(); this.graphics(); },
   toggleAuto() { const g = this.game; g.settings.autoQuality = !g.settings.autoQuality; if (!g.settings.autoQuality) { g.governor.scale = 1; g.applyResolution(); } g.persistSettings(); this.graphics(); },
   gfx() { this.graphics(); },
+  setvol(v) { const g = this.game, [key, val] = v.split(':'), n = +val; if (key === 'musicVol') { g.settings.music = n > 0; if (n > 0) g.settings.musicVol = n; } else { g.settings.sfxVol = n; g.audio.vol = 0.35 * n; if (g.audio.master) g.audio.master.gain.value = g.audio.vol; } g.persistSettings(); this.graphics(); },
   setq(v) { const g = this.game; g.settings.quality = v === 'auto' ? 'auto' : +v; delete g.settings.autoTier; g.governor.scale = 1; g.setTier(v === 'auto' ? detectTier(g.renderer) : +v, false); g.applyResolution(); g.persistSettings(); this.graphics(); },
   quit() { this.game.save(false); location.reload(); },
   continue() { this.game.loadGame(); },
