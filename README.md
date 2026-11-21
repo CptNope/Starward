@@ -10,6 +10,8 @@ Fly, fight, trade, land on planets, board and capture ships, and build a captain
 
 Also on **[itch.io](https://cptnope.itch.io/starward)**, where you can follow the **[devlog](https://cptnope.itch.io/starward/devlog)** or leave a donation.
 
+Downloads: an offline copy of the game and the **original soundtrack** are attached to each [release](https://github.com/CptNope/Starward/releases).
+
 [Player guide](docs/PLAYER_GUIDE.md) · [Developer guide](docs/DEVELOPMENT.md) · [Changelog](CHANGELOG.md) · [Report a bug](https://github.com/CptNope/Starward/issues/new/choose)
 
 Made by **[Jeremy Anderson Tech](https://jeremyanderson.tech/)**

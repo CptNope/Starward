@@ -1,0 +1,46 @@
+name: Attach release files
+# Runs whenever a release is published and attaches the downloads to it, so nothing has to be
+# uploaded by hand.
+#   Tags starting with "soundtrack-" (e.g. soundtrack-v1.0): the album zip, each tagged MP3 and the cover.
+#   Any other tag (e.g. v0.4.0): the offline game with music, and the small web build.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to attach files to
+        required: true
+permissions:
+  contents: write
+jobs:
+  attach:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+
+      - name: Soundtrack files
+        if: startsWith(env.TAG, 'soundtrack-')
+        run: |
+          command -v ffmpeg >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg)
+          VER="${TAG#soundtrack-}"; VER="${VER#v}"
+          scripts/package-soundtrack.sh release "$VER"
+          gh release upload "$TAG" --clobber "release/Starward-Soundtrack-$VER.zip" "release/Starward Original Soundtrack/"*.mp3 "release/Starward Original Soundtrack/cover.jpg#Album cover (cover.jpg)"
+
+      - name: Game files
+        if: ${{ !startsWith(env.TAG, 'soundtrack-') }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - if: ${{ !startsWith(env.TAG, 'soundtrack-') }}
+        run: |
+          npm ci
+          npm run build
+          cp dist/starward-html5-offline.zip "starward-$TAG-offline.zip"
+          cp dist/starward-html5.zip "starward-$TAG-web.zip"
+          gh release upload "$TAG" --clobber "starward-$TAG-offline.zip#Starward $TAG, offline with soundtrack (zip)" "starward-$TAG-web.zip#Starward $TAG, web build (zip)"
