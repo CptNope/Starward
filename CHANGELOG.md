@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.1 — 2026-11-21 — New character models
+
+### Changed
+- **Rebuilt characters.** Every captain, crew member and NPC now has a jointed rig: shoulders, elbows, hips and knees, a tapered chest with armor plates and shoulder pads, a glowing life-support pack, boots, gloves and a proper rifle held in the hand.
+- **New animation.** Walking bends the knees and swings both arms against the stride, the hips bob and the torso twists, and characters breathe when standing still. Aiming raises the rifle with both hands and follows where you look up or down, with a small kick when firing. Sprinting lowers the rifle to a ready carry. Poses blend smoothly instead of snapping.
+- Shots now leave from the rifle's barrel, for the player and NPCs.
+- On the Low graphics preset, elbows and knees are folded into single segments to keep draw calls down.
+
+### Fixed
+- The player's right arm pointed backward toward the camera when aiming.
+- Eyes were hidden inside the head on some species.
+
 ## 0.3.0 — 2026-11-20 — Living universe
 
 ### Added

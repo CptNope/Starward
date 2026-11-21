@@ -2,7 +2,7 @@
 import { TIERS, DAMAGE_TYPES, BIOMES, HULL_CLASSES, SKILLS, SKILL_TREES, SPECIALS, NPC_ROLES, IDEOLOGIES } from './data.js';
 import { COMMODITIES } from './gen/items.js';
 
-export const VERSION = '0.3.0';
+export const VERSION = '0.3.1';
 export const LINKS = {
   site: 'https://jeremyanderson.tech/',
   book: 'https://jeremyanderson.tech/book-a-call/',

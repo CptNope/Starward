@@ -1,6 +1,6 @@
 # Starward Player Guide
 
-*Version 0.3.0. This guide is generated from the game's data (`npm run docs`). The same guide is in the game: press **G**.*
+*Version 0.3.1. This guide is generated from the game's data (`npm run docs`). The same guide is in the game: press **G**.*
 
 **[▶ Play Starward](https://cptnope.github.io/Starward/)** · Made by **[Jeremy Anderson Tech](https://jeremyanderson.tech/)**
 

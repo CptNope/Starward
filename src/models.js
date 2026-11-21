@@ -144,46 +144,151 @@ export function buildStation(seed, color) {
 }
 
 // ---------- Characters ----------
-export function buildCharacter(sp, seed, outfit = 0x445566) {
+// Rigged like a skeleton made of plain Object3Ds: each joint is a Group whose origin is the pivot
+// (shoulder, elbow, hip, knee), children hang along -Y, and the gun is parented to the right hand
+// so it follows every pose. Characters face -Z; +X is their right. Each segment bakes to one draw.
+const _taper = (geo, bx, bz) => { // narrow the bottom of a box (chest V-shape, sleeves)
+  const p = geo.attributes.position; const box = new THREE.Box3().setFromBufferAttribute(p);
+  for (let i = 0; i < p.count; i++) { const t = (p.getY(i) - box.min.y) / (box.max.y - box.min.y || 1); p.setX(i, p.getX(i) * (bx + (1 - bx) * t)); p.setZ(i, p.getZ(i) * (bz + (1 - bz) * t)); }
+  p.needsUpdate = true; geo.computeVertexNormals(); return geo;
+};
+const _box = (w, h, d, m, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); return o; };
+const _joint = (parent, x, y, z) => { const j = new THREE.Group(); j.position.set(x, y, z); parent.add(j); return j; };
+
+export function buildCharacter(sp, seed, outfit = 0x445566, opts = {}) {
   const r = new RNG(seed);
   const g = new THREE.Group();
+  const jointed = opts.jointed ?? Q.tier > 0; // Low preset folds elbows/knees into one segment each
   const skin = new THREE.Color().setHSL(sp.skin[0], sp.skin[1], sp.skin[2] * r.range(0.85, 1.1)).getHex();
+  const oc = new THREE.Color(outfit);
   const sm = mat(skin, { metal: 0.05, rough: 0.8 });
   const om = mat(outfit, { metal: 0.3, rough: 0.6 });
+  const am = mat(oc.clone().lerp(new THREE.Color(0xd8e0ea), 0.28).getHex(), { metal: 0.55, rough: 0.4 }); // armor plates
+  const dm = mat(0x1c2026, { metal: 0.5, rough: 0.7 }); // gloves, boots, belt, pack
+  const accent = new THREE.Color().setHSL(r.next(), 0.85, 0.55).getHex();
+  const lm = mat(0x111111, { emissive: accent, ei: 1.6 }); // suit lights
   const h = sp.height, w = sp.width;
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.8 * w, 0.95 * h, 0.45 * w), om); torso.position.y = 1.35 * h; g.add(torso);
-  const head = new THREE.Group(); head.position.y = 2.05 * h; g.add(head);
+  const ud = { height: 2.3 * h, radius: 0.5 * w, jointed };
+  const segs = []; // [group, Set of child joints to skip when baking]
+
+  // --- hips (root) and legs ---
+  const hips = _joint(g, 0, 0.95 * h, 0); ud.hips = hips;
+  hips.add(_box(0.62 * w, 0.22 * h, 0.36 * w, dm, 0, -0.02 * h));
+  hips.add(_box(0.12 * w, 0.1 * h, 0.05 * w, am, 0, 0, -0.19 * w)); // buckle
+  const leg = (side) => {
+    const hip = _joint(hips, side * 0.18 * w, -0.06 * h, 0);
+    const thighL = 0.42 * h, shinL = 0.4 * h;
+    hip.add(new THREE.Mesh(_taper(new THREE.BoxGeometry(0.25 * w, thighL, 0.27 * w).translate(0, -thighL / 2, 0), 0.8, 0.85), om));
+    const knee = jointed ? _joint(hip, 0, -thighL, 0) : hip;
+    const ky = jointed ? 0 : -thighL;
+    knee.add(_box(0.2 * w, 0.12 * h, 0.08 * w, am, 0, ky - 0.02 * h, -0.13 * w)); // knee pad
+    knee.add(new THREE.Mesh(_taper(new THREE.BoxGeometry(0.2 * w, shinL, 0.22 * w).translate(0, ky - shinL / 2, 0), 0.85, 0.85), om));
+    knee.add(_box(0.24 * w, 0.14 * h, 0.4 * w, dm, 0, ky - shinL - 0.03 * h, -0.07 * w)); // boot
+    segs.push([hip, new Set(jointed ? [knee] : [])]); if (jointed) segs.push([knee, new Set()]);
+    return { hip, knee: jointed ? knee : null };
+  };
+  const LL = leg(-1), LR = leg(1);
+  ud.hipL = LL.hip; ud.kneeL = LL.knee; ud.hipR = LR.hip; ud.kneeR = LR.knee;
+
+  // --- spine: abdomen, chest, pack, head ---
+  const spine = _joint(hips, 0, 0.1 * h, 0); ud.spine = spine;
+  spine.add(_box(0.54 * w, 0.3 * h, 0.32 * w, om, 0, 0.14 * h));
+  const chestH = 0.52 * h;
+  const chest = new THREE.Mesh(_taper(new THREE.BoxGeometry(0.86 * w, chestH, 0.42 * w), 0.72, 0.85), om); chest.position.y = 0.52 * h; spine.add(chest);
+  spine.add(new THREE.Mesh(_taper(new THREE.BoxGeometry(0.6 * w, 0.36 * h, 0.06 * w), 0.7, 1).translate(0, 0.58 * h, -0.22 * w), am)); // chest plate
+  spine.add(_box(0.05 * w, 0.05 * h, 0.03 * w, lm, 0.16 * w, 0.66 * h, -0.255 * w)); // status light
+  spine.add(_box(0.52 * w, 0.46 * h, 0.2 * w, dm, 0, 0.52 * h, 0.3 * w)); // life-support pack
+  spine.add(_box(0.06 * w, 0.32 * h, 0.03 * w, lm, -0.12 * w, 0.52 * h, 0.41 * w));
+  spine.add(_box(0.06 * w, 0.32 * h, 0.03 * w, lm, 0.12 * w, 0.52 * h, 0.41 * w));
+  for (const s of [-1, 1]) spine.add(new THREE.Mesh(new THREE.BoxGeometry(0.3 * w, 0.12 * h, 0.4 * w).rotateZ(-s * 0.18).translate(s * 0.47 * w, 0.8 * h, 0), am)); // shoulder pads
+  spine.add(new THREE.Mesh(new THREE.CylinderGeometry(0.1 * w, 0.12 * w, 0.14 * h, 6).translate(0, 0.84 * h, 0), sm)); // neck
+  const head = _joint(spine, 0, 1.0 * h, 0); ud.head = head; // baked into the spine segment
   let hm;
-  if (sp.head === 'long') { hm = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.35, 3, 6), sm); }
-  else if (sp.head === 'flat') { hm = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.3, 0.45), sm); }
-  else if (sp.head === 'crest') { hm = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.7, 6), sm); }
-  else if (sp.head === 'dome') { hm = new THREE.Mesh(new THREE.SphereGeometry(0.36, 8, 6), sm); hm.scale.y = 1.25; }
-  else { hm = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 6), sm); }
+  if (sp.head === 'long') hm = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.35, 3, 8), sm);
+  else if (sp.head === 'flat') hm = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.3, 0.45), sm);
+  else if (sp.head === 'crest') hm = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.7, 7), sm);
+  else if (sp.head === 'dome') { hm = new THREE.Mesh(new THREE.SphereGeometry(0.36, 10, 8), sm); hm.scale.y = 1.25; }
+  else hm = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 8), sm);
   head.add(hm);
+  const front = { long: 0.21, flat: 0.22, crest: 0.15, dome: 0.34 }[sp.head] ?? 0.26; // eyes sit on the face, not inside it
   const em = mat(0x111111, { emissive: sp.id === 0 ? 0x000000 : new THREE.Color().setHSL(r.next(), 1, 0.5).getHex(), ei: 1.5 });
   for (let i = 0; i < sp.eyes; i++) {
-    const e = new THREE.Mesh(new THREE.SphereGeometry(0.05, 5, 4), em);
-    e.position.set((i - (sp.eyes - 1) / 2) * 0.13, 0.05 + (sp.eyes > 2 && i % 2 ? 0.08 : 0), -0.25); head.add(e);
+    const e = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 4), em);
+    e.position.set((i - (sp.eyes - 1) / 2) * 0.13, 0.05 + (sp.eyes > 2 && i % 2 ? 0.08 : 0), -front); head.add(e);
   }
   for (let i = 0; i < sp.horns; i++) {
     const hn = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.35, 5), mat(sp.color2)); hn.position.set(sp.horns === 1 ? 0 : (i ? 0.18 : -0.18), 0.3, 0); hn.rotation.z = sp.horns === 1 ? 0 : (i ? -0.4 : 0.4); head.add(hn);
   }
-  const limb = (wd, len, m) => { const geo = new THREE.BoxGeometry(wd, len, wd); geo.translate(0, -len / 2, 0); const grp = new THREE.Group(); grp.add(new THREE.Mesh(geo, m)); return grp; };
-  const armL = limb(0.2 * w, 0.85 * h, sm), armR = limb(0.2 * w, 0.85 * h, sm);
-  armL.position.set(-0.52 * w, 1.75 * h, 0); armR.position.set(0.52 * w, 1.75 * h, 0); g.add(armL, armR);
-  const legL = limb(0.26 * w, 0.9 * h, om), legR = limb(0.26 * w, 0.9 * h, om);
-  legL.position.set(-0.2 * w, 0.9 * h, 0); legR.position.set(0.2 * w, 0.9 * h, 0); g.add(legL, legR);
-  if (sp.tail) { const t = limb(0.12, 0.9, sm); t.position.set(0, 0.95 * h, 0.25); t.rotation.x = -1.0; g.add(t); }
-  const gun = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.16, 0.7), mat(0x2a2f36)); gun.position.set(0, -0.75 * h, -0.3); armR.add(gun);
-  const limbs = new Set([armL, armR, legL, legR]);
-  bake(g, limbs); for (const l of limbs) bake(l);
-  g.userData = { armL, armR, legL, legR, head, height: 2.3 * h, radius: 0.5 * w };
+  if (sp.tail) { const tg = _joint(hips, 0, 0, 0.2 * w); const tl = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.95, 5).translate(0, -0.47, 0), sm); tg.rotation.x = -1.0; tg.add(tl); ud.tail = tg; segs.push([tg, new Set()]); }
+
+  // --- arms ---
+  const arm = (side) => {
+    const sh = _joint(spine, side * 0.5 * w, 0.72 * h, 0);
+    sh.rotation.order = 'YXZ'; // raise the arm first (X), then turn it toward the gun (Y)
+    const upL = 0.36 * h, foL = 0.32 * h;
+    sh.add(new THREE.Mesh(_taper(new THREE.BoxGeometry(0.19 * w, upL, 0.2 * w).translate(0, -upL / 2, 0), 0.82, 0.85), om));
+    const el = jointed ? _joint(sh, 0, -upL, 0) : sh;
+    const ey = jointed ? 0 : -upL;
+    el.add(new THREE.Mesh(_taper(new THREE.BoxGeometry(0.17 * w, foL, 0.18 * w).translate(0, ey - foL / 2, 0), 0.8, 0.8), om));
+    el.add(_box(0.19 * w, 0.1 * h, 0.2 * w, am, 0, ey - foL * 0.55)); // bracer
+    const hand = _joint(el, 0, ey - foL - 0.05 * h, 0);
+    hand.add(_box(0.14 * w, 0.13 * h, 0.15 * w, dm));
+    segs.push([sh, new Set(jointed ? [el] : [])]); // hand and gun bake into the forearm: one draw per segment
+    if (jointed) segs.push([el, new Set()]);
+    return { sh, el: jointed ? el : null, hand };
+  };
+  const AL = arm(-1), AR = arm(1);
+  ud.shL = AL.sh; ud.elL = AL.el; ud.handL = AL.hand; ud.shR = AR.sh; ud.elR = AR.el; ud.handR = AR.hand;
+  // Gun lies along the hand's -Y (down the forearm), so a raised arm points it forward.
+  const gun = new THREE.Group(); AR.hand.add(gun); gun.position.set(0, 0, -0.07 * w);
+  const gm = mat(0x2a2f36, { metal: 0.7, rough: 0.35 });
+  gun.add(_box(0.1, 0.5, 0.15, gm, 0, -0.12, 0));                // receiver
+  gun.add(_box(0.06, 0.12, 0.08, dm, 0, 0.17, 0.02));            // stock stub
+  gun.add(_box(0.07, 0.14, 0.12, dm, 0, -0.08, 0.1));            // magazine
+  gun.add(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.035, 0.34, 6).translate(0, -0.53, -0.02), gm)); // barrel
+  gun.add(_box(0.03, 0.16, 0.03, lm, 0, -0.18, -0.085));         // energy strip
+  const muzzle = new THREE.Object3D(); muzzle.position.set(0, -0.72, -0.02); gun.add(muzzle);
+  ud.gun = gun; ud.muzzle = muzzle;
+  segs.push([spine, new Set([AL.sh, AR.sh])], [hips, new Set([spine, LL.hip, LR.hip, ...(ud.tail ? [ud.tail] : [])])]);
+
+  for (const [grp, skip] of segs) bake(grp, skip);
+  ud.pose = { aim: 0, kick: 0, breath: r.next() * 6 };
+  g.userData = ud;
   return g;
 }
-export function animateWalk(ch, t, speed) {
-  const u = ch.userData; const a = Math.sin(t * 9) * Math.min(1, speed / 6) * 0.7;
-  u.legL.rotation.x = a; u.legR.rotation.x = -a; u.armL.rotation.x = -a * 0.7;
+
+const _damp = THREE.MathUtils.damp;
+// Procedural pose: walk cycle (legs, knees, counter-swinging arms, hip bob, torso twist), idle breathing,
+// and a two-handed aim that blends in smoothly. Call once per frame for visible characters.
+//   walkT: walk phase clock, speed: ground speed, aim: 0..1 target weight, pitch: aim pitch (+ = up), dt: frame time
+export function animateCharacter(ch, dt, { walkT = 0, speed = 0, aim = 0, pitch = 0, kick = 0 } = {}) {
+  const u = ch.userData; if (!u.hips) return;
+  const P = u.pose; dt = Math.min(dt, 0.1);
+  P.aim = _damp(P.aim, aim, 9, dt);
+  P.kick = Math.max(P.kick + kick, 0) * Math.exp(-dt * 14);
+  P.breath += dt;
+  const amp = Math.min(1, speed / 6), ph = walkT * 9, s = Math.sin(ph), c = Math.cos(ph);
+  const a = P.aim;
+  // legs: swing from the hip; knee folds on the forward swing, straightens under load
+  u.hipL.rotation.set(0.55 * amp * s, 0, -0.04); u.hipR.rotation.set(-0.55 * amp * s, 0, 0.04);
+  if (u.kneeL) { u.kneeL.rotation.x = -amp * (0.08 + 0.85 * Math.max(0, c)); u.kneeR.rotation.x = -amp * (0.08 + 0.85 * Math.max(0, -c)); }
+  u.hips.position.y = 0.95 * (u.height / 2.3) + Math.abs(s) * 0.05 * amp - 0.03 * amp;
+  // spine: twist against the stride, lean into a run, breathe at rest
+  u.spine.rotation.set(0.12 * amp + a * 0.06 - a * pitch * 0.25, 0.1 * amp * s * (1 - a) - a * 0.18, 0);
+  const br = Math.sin(P.breath * 1.8) * 0.012 * (1 - amp);
+  u.spine.scale.set(1, 1 + br, 1 + br);
+  if (u.tail) u.tail.rotation.set(-1.0 + Math.sin(P.breath * 2.2 + ph) * 0.12, Math.sin(ph * 0.5) * 0.25 * amp, 0);
+  // arms: relaxed swing vs. two-handed aim (right hand on the grip, left on the foregrip)
+  const lerp = (x, y) => x + (y - x) * a;
+  const relaxLx = -0.45 * amp * s, relaxRx = 0.45 * amp * s + 0.15;
+  u.shR.rotation.set(lerp(relaxRx, Math.PI / 2 + pitch * 0.85 - 0.05) - P.kick * 0.25, lerp(0, 0.22), lerp(0.1, 0));
+  u.shL.rotation.set(lerp(relaxLx, Math.PI / 2 * 0.86 + pitch * 0.8), lerp(0, -0.7), lerp(-0.1, -0.2));
+  if (u.elR) { u.elR.rotation.x = lerp(0.25 + 0.2 * amp * Math.max(0, s), 0.12 + P.kick * 0.3); u.elL.rotation.x = lerp(0.25 + 0.2 * amp * Math.max(0, -s), 0.75); }
 }
+// Kept for callers that only walk: no aim, fixed 60 fps step.
+export function animateWalk(ch, t, speed) { animateCharacter(ch, 1 / 60, { walkT: t, speed }); }
+const _mz = new THREE.Vector3();
+export function muzzleWorld(ch, out = _mz) { const m = ch.userData.muzzle; if (!m) return null; ch.updateMatrixWorld(true); return m.getWorldPosition(out); }
 
 export function buildCreature(seed, level = 1) {
   const r = new RNG(seed);

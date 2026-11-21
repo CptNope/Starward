@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { RNG, clamp } from './rng.js';
 import { DAMAGE_TYPES } from './data.js';
 import { personalStats, changeRep } from './player.js';
-import { buildCharacter, buildCreature, animateWalk, buildShip, glowSprite, mat, disposeTree } from './models.js';
+import { buildCharacter, buildCreature, animateCharacter, muzzleWorld, buildShip, glowSprite, mat, disposeTree } from './models.js';
 import { Projectiles, fireWeapon, segSphere } from './projectiles.js';
 import { genLoot, genItem } from './gen/items.js';
 import { Q } from './quality.js';
@@ -175,8 +175,12 @@ export class OnFootMode {
       const moving = ml > 0.05;
       const firing = inp.mouse(0) || (gp && gp.rt > 0.4);
       this.pmesh.rotation.y = this.yaw;
-      if (moving) { this.walkT = (this.walkT || 0) + dt * sprint; animateWalk(this.pmesh, this.walkT, spd); } else animateWalk(this.pmesh, 0, 0);
-      this.pmesh.userData.armR.rotation.x = -Math.PI / 2 - this.pitch * 0.8;
+      if (moving) this.walkT = (this.walkT || 0) + dt * sprint;
+      // Rifle up whenever you're fighting or standing; carried at low ready while sprinting.
+      const sinceFire = this.time - (this.lastFire ?? -9);
+      const aimW = !ps.weapons.length ? 0 : (sprint > 1 && moving && sinceFire > 1.2) ? 0.3 : 1;
+      animateCharacter(this.pmesh, dt, { walkT: this.walkT || 0, speed: moving ? spd : 0, aim: aimW, pitch: this.pitch, kick: this.kick || 0 });
+      this.kick = 0;
       // weapons
       if (inp.pressed('Digit1')) this.wIdx = 0; if (inp.pressed('Digit2') || inp.gpPressed(3)) this.wIdx = ps.weapons.length > 1 ? 1 - this.wIdx : 0;
       if (this.wIdx >= ps.weapons.length) this.wIdx = 0;
@@ -190,7 +194,8 @@ export class OnFootMode {
           if (w._mag <= 0) this.reloading = w.weapon.reload * ps.weaponMods.reload;
           else {
             w._mag--; this.fireCool = 1 / (w.weapon.rate * ps.weaponMods.rate);
-            const origin = new THREE.Vector3(0.55, 1.55, -0.6).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.yaw).add(me.pos);
+            const origin = (muzzleWorld(this.pmesh) || new THREE.Vector3(0.55, 1.55, -0.6).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.yaw).add(me.pos)).clone();
+            this.lastFire = this.time; this.kick = 1;
             const aim = this.aimPoint();
             fireWeapon(this.proj, w, origin, aim.sub(origin).normalize(), this.meProxy, ps.weaponMods, null, this.aimActor);
             this.recoil = 0.03;
@@ -271,7 +276,8 @@ export class OnFootMode {
         a.cool -= dt;
         if (a.cool <= 0 && d < w.range) {
           a.cool = 1 / w.rate * (1.4 + Math.random());
-          const origin = a.center.clone(); origin.y += 0.2;
+          const mz = muzzleWorld(a.mesh); const origin = mz ? mz.clone() : a.center.clone().setY(a.center.y + 0.2);
+          a.kick = 1;
           const tgt = t.isPlayer ? this.meProxy.pos.clone() : t.center.clone();
           tgt.x += (Math.random() - 0.5) * 1.6; tgt.y += (Math.random() - 0.5) * 1.2;
           fireWeapon(this.proj, a.npc.weapon, origin, tgt.sub(origin).normalize(), a, { dmg: 0.5, rate: 1, vel: 1 }, null);
@@ -291,9 +297,15 @@ export class OnFootMode {
         env.collide(a.pos, a.radius);
         a.walkT += dt;
         if (a.kind === 'creature') { const L = a.mesh.userData.legs; L.forEach((lg, i) => lg.rotation.x = Math.sin(a.walkT * 10 + i * 1.7) * 0.5); }
-        else animateWalk(a.mesh, a.walkT, speed);
+        else a.moving = speed;
       }
-    } else if (a.kind !== 'creature') animateWalk(a.mesh, 0, 0);
+    }
+    if (a.kind !== 'creature') {
+      let pitch = 0;
+      if (t) { const tp = t.isPlayer ? this.meProxy.pos : t.center; pitch = Math.atan2(tp.y - (a.pos.y + a.height * 0.62), Math.hypot(tp.x - a.pos.x, tp.z - a.pos.z)); }
+      animateCharacter(a.mesh, dt, { walkT: a.walkT, speed: a.moving || 0, aim: t ? 1 : 0, pitch: clamp(pitch, -0.9, 0.9), kick: a.kick || 0 });
+      a.moving = 0; a.kick = 0;
+    }
     a.pos.y = env.height(a.pos.x, a.pos.z);
     if (env.bound) { a.pos.x = clamp(a.pos.x, -env.bound, env.bound); a.pos.z = clamp(a.pos.z, -env.bound, env.bound); }
   }
