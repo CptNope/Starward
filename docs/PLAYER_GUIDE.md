@@ -114,6 +114,8 @@ When you knock out a ship, it sometimes ends up **disabled** (shown in gold) ins
    - **Scuttle it** for two pieces of gear, credits and XP.
    - **Leave** it adrift.
 
+**Reading a gunfight.** An enemy who spots you raises its rifle, and the muzzle starts to glow red. When the glow peaks, about a second later, it fires, so that's your cue to strafe or duck behind cover. Allies show the same glow in blue.
+
 You can also **hail** friendly or neutral ships (**E** when close) to hear rumors, trade, visit aboard peacefully, or demand their cargo. Demanding is piracy: it costs reputation, and they may fight back. Your odds improve with Intimidation and level.
 
 ## Signals and events

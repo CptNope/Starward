@@ -3,6 +3,10 @@ import { RNG, clamp } from './rng.js';
 import { DAMAGE_TYPES } from './data.js';
 import { personalStats, changeRep } from './player.js';
 import { buildCharacter, buildCreature, animateCharacter, muzzleWorld, buildShip, glowSprite, mat, disposeTree } from './models.js';
+
+// Aim-in tell: an armed NPC who gets a shot on a new target raises the rifle and charges a glow
+// at the muzzle for WINDUP seconds before its first shot, so you get a fair warning.
+const WINDUP = 0.8, WINDUP_JITTER = 0.25;
 import { Projectiles, fireWeapon, segSphere } from './projectiles.js';
 import { genLoot, genItem } from './gen/items.js';
 import { Q } from './quality.js';
@@ -274,7 +278,13 @@ export class OnFootMode {
         const pref = Math.min(18, w.range * 0.5);
         if (d > pref) moveTo = t.pos; else if (d < pref * 0.5) moveTo = _v.copy(a.pos).sub(t.pos).add(a.pos);
         a.cool -= dt;
-        if (a.cool <= 0 && d < w.range) {
+        // Aim in again whenever the target changes or steps out of range.
+        if (t !== a.aimTgt || d >= w.range) { a.aimTgt = t; a.windMax = WINDUP + Math.random() * WINDUP_JITTER; a.windup = a.windMax; a.aimCue = false; }
+        else if (a.windup > 0) {
+          a.windup -= dt;
+          if (!a.aimCue && t.isPlayer) { a.aimCue = true; this.game.audio.aimIn(d); }
+        }
+        if (a.cool <= 0 && d < w.range && a.windup <= 0) {
           a.cool = 1 / w.rate * (1.4 + Math.random());
           const mz = muzzleWorld(a.mesh); const origin = mz ? mz.clone() : a.center.clone().setY(a.center.y + 0.2);
           a.kick = 1;
@@ -304,10 +314,27 @@ export class OnFootMode {
       let pitch = 0;
       if (t) { const tp = t.isPlayer ? this.meProxy.pos : t.center; pitch = Math.atan2(tp.y - (a.pos.y + a.height * 0.62), Math.hypot(tp.x - a.pos.x, tp.z - a.pos.z)); }
       animateCharacter(a.mesh, dt, { walkT: a.walkT, speed: a.moving || 0, aim: t ? 1 : 0, pitch: clamp(pitch, -0.9, 0.9), kick: a.kick || 0 });
+      this.aimTell(a, t, dt);
       a.moving = 0; a.kick = 0;
     }
     a.pos.y = env.height(a.pos.x, a.pos.z);
     if (env.bound) { a.pos.x = clamp(a.pos.x, -env.bound, env.bound); a.pos.z = clamp(a.pos.z, -env.bound, env.bound); }
+  }
+  // Muzzle glow that builds up while an NPC aims in, flares as it fires, then fades.
+  aimTell(a, t, dt) {
+    const mz = a.mesh.userData.muzzle; if (!mz) return;
+    if (!a.tell) { a.tell = glowSprite(a.team === 'h' ? 0xff5030 : 0x6fdcff, 1, 0); a.tell.visible = false; mz.add(a.tell); }
+    const s = a.tell, m = s.material;
+    let op, sc;
+    if (t && a.windup > 0 && a.windMax) {
+      const k = 1 - a.windup / a.windMax;
+      op = 0.25 + 0.7 * k * (0.85 + 0.15 * Math.sin(this.time * 40));
+      sc = 0.35 + 0.95 * k;
+    } else if (a.kick) { op = 1; sc = 1.5; }
+    else { op = Math.max(0, m.opacity - dt * 5); sc = s.scale.x; }
+    // keep the tell readable at range: past 15 m it stops shrinking with distance
+    if (op > 0.01) sc *= Math.max(1, this.camera.position.distanceTo(a.pos) / 15);
+    m.opacity = op; s.scale.setScalar(sc); s.visible = op > 0.01;
   }
   findInteract() {
     const p = this.me.pos;

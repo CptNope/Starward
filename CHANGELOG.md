@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.1 — 2026-11-21 — Readable gunfights
+
+### Changed
+- **Enemies aim in before they shoot.** When a gunman spots you, or you step into its range, it raises its rifle and a glow builds at the muzzle for about a second before the first shot, with a soft rising whine. Hostiles glow red and allies glow blue. The glow stays readable at long range, and it flares as the shot fires. Thanks to Annagrace25 for the suggestion on itch.io.
+- The Field Guide and Player Guide explain how to read the warning.
+
 ## 0.4.0 — 2026-11-21 — Soundtrack
 
 ### Added

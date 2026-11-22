@@ -2,7 +2,7 @@
 import { TIERS, DAMAGE_TYPES, BIOMES, HULL_CLASSES, SKILLS, SKILL_TREES, SPECIALS, NPC_ROLES, IDEOLOGIES } from './data.js';
 import { COMMODITIES } from './gen/items.js';
 
-export const VERSION = '0.4.0';
+export const VERSION = '0.4.1';
 export const LINKS = {
   site: 'https://jeremyanderson.tech/',
   book: 'https://jeremyanderson.tech/book-a-call/',
@@ -41,6 +41,7 @@ export const GUIDE = [
   { id: 'boarding', title: 'Boarding & capturing ships', html: () => `
     <p>When you knock out a ship it sometimes ends up <b>disabled</b> (shown in gold) instead of destroyed. Ion damage and the <b>Disabling Strikes</b> skill make this much more likely.</p>
     <p>Fly close, slow down, and press <kbd>E</kbd> to board. Inside, fight through the crew to the bridge, where the captain and a locked cache wait.</p>
+    <p><b>Reading a gunfight:</b> an enemy who spots you raises its rifle and the muzzle starts to glow red. When the glow peaks, about a second later, it fires. That's your cue to strafe or duck behind cover. Allies show the same glow in blue.</p>
     <p>When the ship is clear, head back to the airlock and choose:</p>
     <ul><li><b>Claim it</b> — it becomes your ship (your gear moves over; its guns go to your inventory).</li><li><b>Scuttle it</b> — salvage two pieces of gear, credits and XP.</li><li><b>Leave</b> — it stays adrift.</li></ul>
     <p>You can also <b>hail</b> friendly or neutral ships (<kbd>E</kbd> when close) to hear rumors, trade with them, visit aboard peacefully or demand their cargo. Demanding is piracy: it costs reputation, and they may fight back.</p>` },

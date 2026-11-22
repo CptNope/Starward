@@ -25,6 +25,8 @@ export class Audio {
     this.tone(f, 0.08, dtype === 'kinetic' ? 'sawtooth' : 'square', 0.06, 0.4);
   }
   boom(big = false) { if (this.throttle('boom', 80)) { this.noise(big ? 0.9 : 0.4, big ? 0.5 : 0.25); this.tone(80, big ? 0.7 : 0.3, 'sine', 0.3, 0.3); } }
+  // Short rising whine when an enemy starts aiming at you, quieter the farther away it is.
+  aimIn(dist) { if (this.throttle('aimIn', 250)) this.tone(420, 0.32, 'sine', 0.07 * Math.max(0.25, 1 - dist / 45), 2.2); }
   ui() { this.tone(1200, 0.05, 'sine', 0.05); }
   loot(tier) { this.tone(500 + tier * 120, 0.12, 'triangle', 0.1, 1.6); }
   level() { [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => this.tone(f, 0.18, 'triangle', 0.12), i * 90)); }
