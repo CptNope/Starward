@@ -388,6 +388,7 @@ Buy hulls at station shipyards (your old ship is traded in for 45% of its price)
 |---|---|
 | Mouse | Aim; the ship follows (click to capture) |
 | W / S · X | Throttle · all stop |
+| Scroll wheel | Throttle |
 | A / D · Q / E | Yaw · roll |
 | Shift · C | Boost · cruise |
 | Left mouse / Space | Guns |
@@ -438,12 +439,15 @@ Buy hulls at station shipyards (your old ship is traded in for 45% of its price)
 | RT · LT | Guns · missile | Fire |
 | RB | Boost | — |
 | A | Interact | Jump |
-| B | — | Interact |
+| B | Target ahead | Interact |
 | X | — | Reload |
 | Y | Target | Swap weapon |
 | L3 | Cruise | Sprint |
 | R3 | Camera | First / third person |
+| D-pad down | — | Medkit |
 | Back · Start | Inventory · pause | Inventory · pause |
+
+In menus, the D-pad or left stick moves the highlight, **A** selects, **B** goes back and **LB / RB** switch tabs. On the galaxy map the D-pad picks stars, the triggers zoom and **A** engages the jump drive.
 
 ## Graphics, saving and troubleshooting
 

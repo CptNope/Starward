@@ -8,7 +8,13 @@ Thanks for helping. Bug reports, ideas and pull requests are all welcome.
   1. Run `npm run build` and play through the parts you changed.
   2. If you changed game data, run `npm run docs` so the Player Guide stays in sync.
   3. Keep performance in mind: use `mat()` / `litMat()` and `bake()` for new models, and read quality settings from `Q`.
-  4. Add a line to `CHANGELOG.md`.
+  4. If you touched controls, menus or the HUD, run the input test. It plays the game with a keyboard and mouse, a simulated gamepad and simulated touch, and checks about 125 actions:
+     ```
+     pip install playwright && playwright install chromium
+     npm run build && (cd dist && python3 -m http.server 8766 &)
+     python3 tests/input-test.py          # or: kbm, pad, touch
+     ```
+  5. Add a line to `CHANGELOG.md`.
 
 By contributing, you agree your work is released under the [MIT License](LICENSE).
 

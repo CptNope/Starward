@@ -45,6 +45,9 @@ class Game {
     this.applyResolution();
     this.input = new Input(this.canvas);
     this.touch = new Touch(this); this.input.touchSource = this.touch;
+    // Esc (or alt-tab) frees the mouse without a key event reaching the page: pause instead of
+    // letting the cursor take over steering.
+    this.input.onLockLost = () => { if (this.mode && !this.ui.modal && !this.jumping && !this.touch.active) { this.lockLostAt = performance.now(); this.ui.pause(); } };
     this.input.onKey = () => { if (this.touch.active) { this.touch.active = false; this.input.touchActive = false; document.body.classList.remove('is-touch'); this.touch.refreshVisible(); } };
     this.audio = new Audio();
     this.music = new Music(this);
@@ -295,7 +298,7 @@ class Game {
     s.ships = s.ships.filter(x => x.alive);
     s.spawnWingmenNow();
   }
-  afterMenu() { if (this.mode && this.mode.kind !== 'space' && !this.ui.modal) this.input.requestLock(); }
+  afterMenu() { if (this.mode && !this.ui.modal && !this.touch.active && this.input.lastDevice === 'kbm' && (this.mode.kind !== 'space' || this.settings.flight !== 'classic')) this.input.requestLock(); }
 
   // ---------------- Progression ----------------
   addXP(n, why) {
@@ -379,6 +382,8 @@ class Game {
     this.touch.refreshVisible();
     if (this.settings.showFps) { this.fpsT = (this.fpsT || 0) - raw; if (this.fpsT <= 0) { this.fpsT = 0.5; this.fpsEl.style.display = ''; this.fpsEl.textContent = `${this.governor.fps} fps · ${PRESETS[this.tier].name} · ${Math.round(this.renderer.getPixelRatio() * 100) / 100}x`; } } else if (this.fpsEl.style.display !== 'none') this.fpsEl.style.display = 'none';
     inp.pollGamepad();
+    if (ui.modal) ui.gamepadNav(inp, raw);
+    ui.refreshHint();
     if (this.mode && !this.jumping) {
       // global hotkeys
       if (!ui.modal || ['menu'].includes(ui.modal)) {
@@ -386,9 +391,9 @@ class Game {
         for (const [k, tab] of Object.entries(map)) if (inp.pressed(k)) { if (ui.modal === 'menu' && ui.tab === tab) ui.close(); else { ui.sel = null; ui.openMenu(tab); } }
         if (inp.gpPressed(8)) ui.modal === 'menu' ? ui.close() : ui.openMenu('inventory');
       }
-      if (inp.pressed('Escape') || inp.pressed('KeyP') || inp.gpPressed(9)) {
-        if (ui.modal === 'death') { /* wait */ } else if (ui.modal === 'shop') { ui.shopOpen = false; ui.close(); } else if (ui.modal === 'guide') ui.handlers.guideback.call(ui); else if (ui.modal) ui.close(); else ui.pause();
-      }
+      // Esc that just freed the mouse already paused the game; don't let it unpause straight away
+      const escFresh = performance.now() - (this.lockLostAt || 0) < 400;
+      if ((inp.pressed('Escape') && !escFresh) || inp.pressed('KeyP') || inp.gpPressed(9)) ui.back();
       if (!ui.modal) {
         this.mode.update(dt);
         this.player.time += dt;

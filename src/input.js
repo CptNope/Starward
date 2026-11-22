@@ -25,6 +25,7 @@ export class Input {
       if (this.touchActive && !this.locked) return;
       if (this.locked) {
         this.dx += e.movementX; this.dy += e.movementY;
+        if (Math.abs(e.movementX) + Math.abs(e.movementY) > 3) this.lastDevice = 'kbm';
         this.vc.x += e.movementX / 260; this.vc.y += e.movementY / 260;
         const l = Math.hypot(this.vc.x, this.vc.y); if (l > 1) { this.vc.x /= l; this.vc.y /= l; }
       } else {
@@ -36,12 +37,20 @@ export class Input {
       }
     });
     canvas.addEventListener('wheel', (e) => { this.wheel += Math.sign(e.deltaY); }, { passive: true });
-    document.addEventListener('pointerlockchange', () => { this.locked = document.pointerLockElement === canvas; });
+    document.addEventListener('pointerlockchange', () => {
+      const was = this.locked;
+      this.locked = document.pointerLockElement === canvas;
+      if (was && !this.locked && !this.selfRelease && this.onLockLost) this.onLockLost();
+      this.selfRelease = false;
+    });
+    // an uncaptured cursor that leaves the window shouldn't keep the ship turning
+    document.addEventListener('mouseleave', () => { if (!this.locked) { this.vc.x = 0; this.vc.y = 0; } });
+    addEventListener('blur', () => { this.vc.x = 0; this.vc.y = 0; });
   }
   requestLock() {
     try { const p = this.canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* sandbox may refuse */ }
   }
-  releaseLock() { try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) {} }
+  releaseLock() { try { if (document.pointerLockElement) { this.selfRelease = true; document.exitPointerLock(); } } catch (e) {} }
   down(c) { return this.keys.has(c); }
   pressed(c) { return this.edges.has(c); }
   mouse(b) { return this.mb[b]; }
@@ -68,5 +77,7 @@ export class Input {
   // Standard mapping: 0 A,1 B,2 X,3 Y,4 LB,5 RB,6 LT,7 RT,8 Back,9 Start,10 LS,11 RS,12-15 dpad
   gpDown(i) { return !!(this.gp && this.gp.b[i]); }
   gpPressed(i) { return !!(this.gp && this.gpEdge[i]); }
+  // a real controller (not the touch screen's synthetic one) is what the player is using
+  get padActive() { return !!(this.gp && !this.gp.touch && this.lastDevice === 'pad'); }
   endFrame() { this.edges.clear(); this.mbEdge = [false, false, false]; this.dx = 0; this.dy = 0; this.wheel = 0; }
 }

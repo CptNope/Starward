@@ -12,8 +12,17 @@
 ### Added
 - **Switch views everywhere.** On foot, on planets and while boarding, **V** (or R3 on a gamepad) now switches between third person and a new first-person view with your rifle in hand. In space, **V** cycles chase, cockpit and a new wide chase camera. Touch screens get a VIEW button. Your choice is remembered.
 
+- **Play entirely on a gamepad.** Menus, stations, shops, the inventory, the galaxy map, the title screen and the death screen can now all be used with a controller: the D-pad or left stick moves a highlight, A selects, B goes back, and LB / RB switch tabs. On the galaxy map the D-pad picks stars, the triggers zoom and A engages the jump drive.
+- In space, **B** on a gamepad targets whatever is ahead, and the **scroll wheel** sets throttle.
+- Button prompts and the hint bar show the buttons for the device you're using: keys, gamepad buttons or USE on touch.
+
 ### Fixed
 - The gold lead diamond lost its diamond shape when a target was locked.
+- Having a gamepad plugged in, even unused, switched off mouse aim.
+- Pressing Esc while flying freed the mouse but kept the game running, and the ship started steering toward the cursor. Losing mouse capture now pauses the game.
+- With the mouse not captured, moving the cursor out of the window left the ship turning.
+- After closing a menu in space, the mouse wasn't captured again.
+- Pressing A or B to close a menu on a gamepad could also act in the game on the same frame.
 
 ## 0.4.1 — 2026-11-21 — Readable gunfights
 

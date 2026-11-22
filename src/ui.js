@@ -49,6 +49,16 @@ const statLabel = (k) => STAT_NAMES[k] || k;
 const fmtStat = (k, v) => ['moveSpeed', 'crit', 'luck'].includes(k) ? pct(v) : (Math.round(v * 100) / 100);
 function kindLabel(it) { return { sweapon: 'Ship weapon', missile: 'Missile launcher', shield: 'Ship shield', engine: 'Engine', reactor: 'Reactor', plating: 'Hull plating', pweapon: 'Personal weapon', suit: 'Suit', shieldgen: 'Personal shield', implant: 'Implant', skillchip: 'Datachip', medkit: 'Consumable' }[it.kind] || it.kind; }
 
+const HINTS = {
+  space: {
+    kbm: '<b>Mouse</b> aim · <b>W/S</b> throttle · <b>Shift</b> boost · <b>LMB/Space</b> fire · <b>RMB/F</b> missile · <b>T</b> target · <b>C</b> cruise · <b>E</b> interact · <b>L</b> land · <b>V</b> camera · <b>M</b> map · <b>I</b> inventory · <b>G</b> guide · <b>Esc</b> pause',
+    pad: '<b>L stick</b> steer · <b>R stick</b> roll / throttle · <b>RT</b> fire · <b>LT</b> missile · <b>RB</b> boost · <b>Y</b> target · <b>B</b> target ahead · <b>A</b> interact · <b>L3</b> cruise · <b>R3</b> camera · <b>Back</b> menu · <b>Start</b> pause',
+  },
+  foot: {
+    kbm: '<b>WASD</b> move · <b>Mouse</b> look · <b>LMB</b> fire · <b>R</b> reload · <b>1/2</b> weapons · <b>Space</b> jump · <b>Shift</b> sprint · <b>E</b> interact · <b>H</b> medkit · <b>V</b> view · <b>I</b> inventory · <b>G</b> guide · <b>Esc</b> pause',
+    pad: '<b>L stick</b> move · <b>R stick</b> look · <b>RT</b> fire · <b>A</b> jump · <b>B</b> interact · <b>X</b> reload · <b>Y</b> swap · <b>L3</b> sprint · <b>R3</b> view · <b>D-pad ↓</b> medkit · <b>Back</b> menu · <b>Start</b> pause',
+  },
+};
 export class UI {
   constructor(game) {
     this.game = game; this.modal = null; this.freeCursor = false; this.mode = 'menu';
@@ -70,10 +80,111 @@ export class UI {
     if (this.game.touch) this.game.touch.setMode(m);
     this.last = {};
     this.hud.style.display = m === 'menu' ? 'none' : '';
-    $('#hint').innerHTML = m === 'space'
-      ? '<b>Mouse</b> steer · <b>W/S</b> throttle · <b>Shift</b> boost · <b>LMB/Space</b> fire · <b>RMB/F</b> missile · <b>T</b> target · <b>C</b> cruise · <b>E</b> interact · <b>L</b> land · <b>M</b> map · <b>I</b> inventory · <b>K</b> skills · <b>G</b> guide · <b>Esc</b> pause'
-      : '<b>WASD</b> move · <b>Mouse</b> look · <b>LMB</b> fire · <b>R</b> reload · <b>1/2</b> weapons · <b>Space</b> jump · <b>Shift</b> sprint · <b>E</b> interact · <b>H</b> medkit · <b>I</b> inventory · <b>G</b> guide · <b>Esc</b> pause';
+    this.hintKey = null; this.refreshHint();
     this.navMarkers([]); this.worldBars([]); this.target(null);
+  }
+  // Bottom hint bar follows the device you're using.
+  refreshHint() {
+    if (this.mode !== 'space' && this.mode !== 'foot') return;
+    const dev = this.game.input.padActive ? 'pad' : 'kbm', k = this.mode + dev;
+    if (this.hintKey === k) return; this.hintKey = k;
+    $('#hint').innerHTML = HINTS[this.mode][dev];
+  }
+  // Same as Esc: step back out of whatever is open, or pause.
+  back() {
+    const g = this.game;
+    if (!g.mode) { if (this.modal === 'title' && !$('#ng-name')) return; return this.title(); }
+    if (this.modal === 'death') return;
+    if (this.modal === 'shop') { this.shopOpen = false; return this.close(); }
+    if (this.modal === 'guide') return this.handlers.guideback.call(this);
+    if (this.modal) return this.close();
+    this.pause();
+  }
+  // Gamepad control of menus: D-pad / left stick moves a highlight, A presses it, B goes back,
+  // LB / RB switch tabs. On the galaxy map the stick picks stars and the triggers zoom.
+  gamepadNav(inp, dt) {
+    const gp = inp.gp;
+    if (!gp || gp.touch) { if (this.gpEl) { this.gpEl.classList.remove('gpfocus'); this.gpEl = null; } return; }
+    const now = performance.now();
+    let dir = null;
+    if (gp.b[12] || gp.ly < -0.55) dir = 'up'; else if (gp.b[13] || gp.ly > 0.55) dir = 'down';
+    else if (gp.b[14] || gp.lx < -0.55) dir = 'left'; else if (gp.b[15] || gp.lx > 0.55) dir = 'right';
+    let step = null;
+    if (dir) {
+      if (!this.navHold || this.navHold.dir !== dir) { this.navHold = { dir, t: now + 380 }; step = dir; }
+      else if (now >= this.navHold.t) { this.navHold.t = now + 120; step = dir; }
+    } else this.navHold = null;
+    const used = step || [0, 1, 4, 5, 8, 9].some(i => inp.gpPressed(i));
+    if (used) inp.lastDevice = 'pad';
+    if (!inp.padActive && !used) return;
+    const onMap = this.modal === 'menu' && this.tab === 'galaxy' && $('#map');
+    if (onMap) {
+      if (step) this.mapStep(step);
+      const z = (gp.rt || 0) - (gp.lt || 0);
+      if (Math.abs(z) > 0.3 && this.mapView) { this.mapView.z = Math.max(3, Math.min(60, this.mapView.z * (1 + z * dt * 1.5))); this.mapRedraw && this.mapRedraw(); }
+    }
+    const items = this.navItems();
+    if (this.gpEl && !items.includes(this.gpEl)) {
+      const key = this.gpKey; this.gpEl = items.find(e => this.navKey(e) === key) || null;
+    }
+    if (!this.gpEl && items.length) this.gpEl = items.find(e => e.classList.contains('primary')) || items.find(e => e.tagName === 'BUTTON' && !e.closest('.tabs')) || items[0];
+    if (step && !onMap && this.gpEl) { const nx = this.navMove(items, this.gpEl, step); if (nx) this.gpEl = nx; }
+    for (const e of this.overlay.querySelectorAll('.gpfocus')) if (e !== this.gpEl) e.classList.remove('gpfocus');
+    if (this.gpEl) {
+      if (!this.gpEl.classList.contains('gpfocus')) {
+        this.gpEl.classList.add('gpfocus'); this.gpEl.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        const r = this.gpEl.getBoundingClientRect(); this.onHover({ target: this.gpEl, clientX: r.right, clientY: r.top });
+      }
+      this.gpKey = this.navKey(this.gpEl);
+    }
+    if (inp.gpPressed(4) || inp.gpPressed(5)) {
+      const tabs = [...this.overlay.querySelectorAll('.tabs [data-a="tab"], .tabs [data-a="stab"]')];
+      const cur = tabs.findIndex(t => t.classList.contains('on'));
+      if (tabs.length) { const n = tabs[(cur + (inp.gpPressed(5) ? 1 : -1) + tabs.length) % tabs.length]; this.gpEl = null; this.gpKey = null; n.click(); }
+    } else if (inp.gpPressed(0)) {
+      if (onMap) { const j = this.overlay.querySelector('#mapinfo [data-a="jump"]:not([disabled])'); if (j) j.click(); else if (this.gpEl) this.gpEl.click(); }
+      else if (this.gpEl) this.gpEl.click();
+    } else if (inp.gpPressed(1) || inp.gpPressed(9)) this.back();
+    else if (inp.gpPressed(8) && this.modal === 'menu') this.close();
+    // menus swallow controller presses so they don't also act in the game this frame
+    if (this.modal || used) inp.gpEdge = inp.gpEdge.map(() => false);
+  }
+  navItems() {
+    return [...this.overlay.querySelectorAll('button:not([disabled]), [data-a]:not(button)')].filter((e) => {
+      if (e.tagName === 'INPUT' || e.closest('[disabled]')) return false;
+      const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== 'hidden';
+    });
+  }
+  navKey(e) { return `${e.dataset.a || ''}|${e.dataset.v || ''}|${e.textContent.trim().slice(0, 24)}`; }
+  navMove(items, from, dir) {
+    const a = from.getBoundingClientRect(), ax = a.left + a.width / 2, ay = a.top + a.height / 2;
+    const v = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }[dir];
+    let best = null, bs = Infinity;
+    for (const e of items) {
+      if (e === from) continue;
+      const r = e.getBoundingClientRect(), dx = r.left + r.width / 2 - ax, dy = r.top + r.height / 2 - ay;
+      const along = dx * v[0] + dy * v[1]; if (along <= 4) continue;
+      const across = Math.abs(dx * v[1] - dy * v[0]);
+      const sc = along + across * 2.2; if (sc < bs) { bs = sc; best = e; }
+    }
+    return best;
+  }
+  // Move the galaxy-map selection to the nearest star in a direction.
+  mapStep(dir) {
+    const g = this.game, U = g.U, V = this.mapView, cv = $('#map'); if (!V || !cv) return;
+    const from = U.systems[this.mapSel ?? g.player.systemId];
+    const v = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }[dir];
+    let best = null, bs = Infinity;
+    for (const s of U.systems) {
+      if (s === from) continue;
+      const dx = s.x - from.x, dy = s.y - from.y, along = dx * v[0] + dy * v[1]; if (along <= 0.05) continue;
+      const sc = along + Math.abs(dx * v[1] - dy * v[0]) * 2; if (sc < bs) { bs = sc; best = s; }
+    }
+    if (!best) return;
+    this.mapSel = best.id;
+    const px = (best.x - V.cx) * V.z + cv.width / 2, py = (best.y - V.cy) * V.z + cv.height / 2;
+    if (px < 60 || px > cv.width - 60 || py < 60 || py > cv.height - 60) { V.cx = best.x; V.cy = best.y; }
+    this.drawMap();
   }
   toast(msg, color = '#e6f4ff') {
     const box = $('#toasts');
@@ -81,7 +192,9 @@ export class UI {
     box.prepend(d); while (box.children.length > (innerHeight < 500 ? 3 : 6)) box.lastChild.remove();
     setTimeout(() => d.classList.add('out'), 3600); setTimeout(() => d.remove(), 4200);
   }
-  prompt(t) { if (t && this.game.touch && this.game.touch.active) t = t.replace(/^[EL] · /, 'USE · '); if (this.last.prompt === t) return; this.last.prompt = t; const p = $('#prompt'); p.textContent = t || ''; p.style.display = t ? '' : 'none'; }
+  prompt(t) {
+    if (t && this.game.touch && this.game.touch.active) t = t.replace(/^[EL] · /, 'USE · ');
+    else if (t && this.game.input.padActive) t = t.replace(/^[EL] · /, this.mode === 'foot' ? 'B · ' : 'A · '); if (this.last.prompt === t) return; this.last.prompt = t; const p = $('#prompt'); p.textContent = t || ''; p.style.display = t ? '' : 'none'; }
   set(id, html) { if (this.last[id] === html) return; this.last[id] = html; $(id).innerHTML = html; }
   top() {
     const P = this.game.player; if (!P) return;
@@ -94,7 +207,7 @@ export class UI {
   label(id, txt) { const k = id + 'L'; if (this.last[k] === txt) return; this.last[k] = txt; $(id).textContent = txt; }
   show(id, on) { const k = id + 'V'; if (this.last[k] === on) return; this.last[k] = on; $(id).style.display = on ? '' : 'none'; }
   spaceHud(d) {
-    this.show('#lockhint', false);
+    this.show('#lockhint', !this.game.input.locked && this.game.input.lastDevice === 'kbm' && this.game.settings.flight !== 'classic' && !(this.game.touch && this.game.touch.active));
     this.bar('#b1', d.shield, d.shieldTxt); this.bar('#b2', d.hull, d.hullTxt); this.bar('#b3', d.energy, `${Math.round(d.energy * 100)}%`);
     this.label('#b1 span', 'Shield'); this.label('#b2 span', 'Hull'); this.show('#b3', true);
     this.set('#spd', `<b>${Math.round(d.speed / 5) * 5}</b> m/s ${d.cruise ? '<span class="cruise">CRUISE</span>' : d.boost ? '<span class="boost">BOOST</span>' : ''}<div class="thr"><i style="width:${Math.round(d.throttle * 20) * 5}%"></i></div><div class="mis">Missiles ${d.missiles}</div>`);
@@ -114,7 +227,7 @@ export class UI {
     const ch = $('#crosshair'); if (ch.style.left) { ch.style.left = ''; ch.style.top = ''; }
     this.bar('#b1', d.shield, d.shieldTxt); this.bar('#b2', d.hp, d.hpTxt); this.show('#b3', false);
     this.label('#b1 span', 'Shield'); this.label('#b2 span', 'Health');
-    this.show('#lockhint', !this.game.input.locked && !(this.game.touch && this.game.touch.active));
+    this.show('#lockhint', !this.game.input.locked && this.game.input.lastDevice === 'kbm' && !(this.game.touch && this.game.touch.active));
     this.set('#spd', `<div class="wpn" style="color:${TIERS[d.tier].color}">${esc(d.weapon)}</div><div class="ammo">${d.ammo}</div><div class="mis">Medkits ${d.medkits}${d.hazard ? ` · <span class="haz">Hazard ${d.hazard}</span>` : ''}</div>`);
     this.top();
   }
@@ -499,8 +612,8 @@ export class UI {
       <div class="acts"><button data-a="${g.player ? 'pauseback' : 'titleback'}">Back</button></div></div>`);
   }
   controls() {
-    this.open('pause', `<div class="panel dlg wide"><div class="dn big">Controls</div><div class="cols2"><div><h3>Flying</h3><div class="keys">Mouse — aim; the ship turns to follow (click to capture the mouse)<br>W / S — throttle · X — all stop<br>A / D — yaw · Q / E — roll<br>Shift — boost · C — cruise drive<br>LMB / Space — guns · RMB / F — missile<br>T — cycle targets · R — target ahead<br>E — dock / board / hail · L — land<br>V — camera (chase, cockpit, wide) · M — galaxy map</div>
-      <div class="acts col"><button data-a="toggleFlight">Mouse flight: ${this.game.settings.flight === 'classic' ? 'Classic (cursor sets turn rate)' : 'Mouse aim (ship follows the cursor)'}</button></div></div><div><h3>On foot</h3><div class="keys">WASD — move · Mouse — look<br>LMB — fire · R — reload · 1 / 2 — swap weapon<br>Space — jump · Shift — sprint<br>E — talk / loot / mine / exit · H — medkit<br>V — first / third person</div><h3>Menus</h3><div class="keys">I / Tab — inventory · K — skills · J — missions<br>M — galaxy map · Esc / P — pause</div><h3>Gamepad</h3><div class="keys">Sticks fly / move & look · RT fire · LT missile · RB boost · A interact/jump · B interact · Y target/swap · X reload · L3 cruise / sprint · R3 camera · Start pause</div></div></div><div class="acts"><button data-a="${this.game.player ? 'pauseback' : 'titleback'}">Back</button></div></div>`);
+    this.open('pause', `<div class="panel dlg wide"><div class="dn big">Controls</div><div class="cols2"><div><h3>Flying</h3><div class="keys">Mouse — aim; the ship turns to follow (click to capture the mouse)<br>W / S or wheel — throttle · X — all stop<br>A / D — yaw · Q / E — roll<br>Shift — boost · C — cruise drive<br>LMB / Space — guns · RMB / F — missile<br>T — cycle targets · R — target ahead<br>E — dock / board / hail · L — land<br>V — camera (chase, cockpit, wide) · M — galaxy map</div>
+      <div class="acts col"><button data-a="toggleFlight">Mouse flight: ${this.game.settings.flight === 'classic' ? 'Classic (cursor sets turn rate)' : 'Mouse aim (ship follows the cursor)'}</button></div></div><div><h3>On foot</h3><div class="keys">WASD — move · Mouse — look<br>LMB — fire · R — reload · 1 / 2 — swap weapon<br>Space — jump · Shift — sprint<br>E — talk / loot / mine / exit · H — medkit<br>V — first / third person</div><h3>Menus</h3><div class="keys">I / Tab — inventory · K — skills · J — missions<br>M — galaxy map · Esc / P — pause</div><h3>Gamepad</h3><div class="keys">Sticks fly / move & look · RT fire · LT missile · RB boost · A interact/jump · B target ahead/interact · Y target/swap · X reload · L3 cruise / sprint · R3 camera · Start pause<br>Menus: D-pad moves · A selects · B back · LB / RB tabs</div></div></div><div class="acts"><button data-a="${this.game.player ? 'pauseback' : 'titleback'}">Back</button></div></div>`);
   }
   title() {
     const has = this.game.hasSave();

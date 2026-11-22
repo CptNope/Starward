@@ -387,7 +387,7 @@ export class SpaceMode {
     const dz = (v) => Math.abs(v) < 0.06 ? 0 : (v - Math.sign(v) * 0.06) / 0.94;
     // Mouse aim (captured mouse): the mouse moves an aim point and the ship turns to follow it.
     // Otherwise the cursor offset from the centre sets the turn rate, like a joystick.
-    this.mouseAim = inp.locked && !gp && g.settings.flight !== 'classic' && !g.ui.freeCursor;
+    this.mouseAim = inp.locked && !inp.padActive && g.settings.flight !== 'classic' && !g.ui.freeCursor;
     if (this.mouseAim) {
       if (!this.aimDir) this.aimDir = p.forward().clone();
       const cq = this.camera.quaternion;
@@ -423,6 +423,7 @@ export class SpaceMode {
     if (inp.down('KeyW') || (gp && gp.ry < -0.3)) p.throttle = Math.min(1, p.throttle + dt * 0.8);
     if (inp.down('KeyS') || (gp && gp.ry > 0.3)) p.throttle = Math.max(0, p.throttle - dt * 0.8);
     if (inp.pressed('KeyX')) p.throttle = 0;
+    if (inp.wheel) p.throttle = clamp(p.throttle - inp.wheel * 0.1, 0, 1); // scroll up for more throttle
     p.boosting = (inp.down('ShiftLeft') || inp.down('ShiftRight') || inp.gpDown(5)) && p.energy > 5 && !this.cruiseOn;
     if (p.boosting) p.energy -= st.boostDrain * dt;
     // cruise
@@ -439,7 +440,7 @@ export class SpaceMode {
     p.energy = Math.min(st.energyMax, p.energy + st.energyRegen * dt * (p.boosting ? 0 : 1));
     // targeting
     if (inp.pressed('KeyT') || inp.gpPressed(3)) this.cycleTarget();
-    if (inp.pressed('KeyR')) this.targetAhead();
+    if (inp.pressed('KeyR') || inp.gpPressed(1)) this.targetAhead();
     if (this.target && (!this.target.alive)) this.target = null;
     // weapons
     const firing = (inp.mouse(0) && !g.ui.freeCursor) || inp.down('Space') || (gp && gp.rt > 0.4);
