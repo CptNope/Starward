@@ -10,8 +10,13 @@ import { buildRocks, updateRocks, spawnWingmen, wingTarget, flyFormation, wingma
 import { Projectiles, fireWeapon } from './projectiles.js';
 
 const FWD = new THREE.Vector3(0, 0, -1), UP = new THREE.Vector3(0, 1, 0);
-const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _q = new THREE.Quaternion(), _e = new THREE.Euler();
+const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _v4 = new THREE.Vector3(), _q = new THREE.Quaternion(), _e = new THREE.Euler();
 const NPC_DMG = 0.55;
+// Dogfight tuning. GIMBAL: how far (radians) guns can swivel off the nose toward your aim.
+// SNAP: how close the aim must be to a target's lead marker for the guns to lock onto it.
+const GIMBAL = 0.2, SNAP_MOUSE = 0.1, SNAP_PAD = 0.26;
+// Mouse aim: radians of aim movement per pixel, and the furthest the aim may lead the nose.
+const AIM_SENS = 0.0021, AIM_MAX = 0.55;
 
 const U_ideo = (mode, f) => mode.U.factions[f].ideology;
 
@@ -92,7 +97,7 @@ export class SpaceMode {
   constructor(game, sysId, arrival = { type: 'warp' }) {
     this.game = game; this.U = game.U; this.sysId = sysId; this.arrival = arrival; this.kind = 'space';
     this.time = 0; this.ships = []; this.crates = []; this.targetIdx = 0; this.rocks = []; this.signals = []; this.scan = null;
-    this.cruise = 0; this.cruiseOn = false; this.spawnTimer = 20; this.viewMode = 0;
+    this.cruise = 0; this.cruiseOn = false; this.spawnTimer = 20; this.viewMode = game.settings.spaceView ?? 0; this.aimDir = null;
     this.sys = getSystem(this.U, sysId);
     this.rng = new RNG(hashInts(Date.now() & 0xffffff, sysId));
   }
@@ -380,11 +385,38 @@ export class SpaceMode {
     // steering
     let yaw = 0, pitch = 0, roll = 0;
     const dz = (v) => Math.abs(v) < 0.06 ? 0 : (v - Math.sign(v) * 0.06) / 0.94;
-    if (!g.ui.freeCursor) { yaw = -dz(inp.vc.x); pitch = -dz(inp.vc.y); }
+    // Mouse aim (captured mouse): the mouse moves an aim point and the ship turns to follow it.
+    // Otherwise the cursor offset from the centre sets the turn rate, like a joystick.
+    this.mouseAim = inp.locked && !gp && g.settings.flight !== 'classic' && !g.ui.freeCursor;
+    if (this.mouseAim) {
+      if (!this.aimDir) this.aimDir = p.forward().clone();
+      const cq = this.camera.quaternion;
+      _q.setFromAxisAngle(_v.set(0, 1, 0).applyQuaternion(cq), -inp.dx * AIM_SENS); this.aimDir.applyQuaternion(_q);
+      _q.setFromAxisAngle(_v.set(1, 0, 0).applyQuaternion(cq), -inp.dy * AIM_SENS); this.aimDir.applyQuaternion(_q);
+      // keep the aim point within reach of the nose so it never drifts off screen
+      const f = p.forward(_v2), a = this.aimDir.angleTo(f);
+      if (a > AIM_MAX) { const ax = _v.crossVectors(f, this.aimDir).normalize(); this.aimDir.copy(f).applyAxisAngle(ax, AIM_MAX); }
+      const e = this.localErr(this.aimDir);
+      yaw = clamp(e.yaw * 5, -1, 1); pitch = clamp(e.pitch * 5, -1, 1);
+    } else {
+      this.aimDir = null;
+      if (!g.ui.freeCursor) { yaw = -dz(inp.vc.x); pitch = -dz(inp.vc.y); }
+    }
     if (inp.down('KeyA')) yaw += 0.8; if (inp.down('KeyD')) yaw -= 0.8;
     if (inp.down('KeyQ')) roll += 1; if (inp.down('KeyE') && !this.interactTarget) roll -= 1;
     if (inp.down('ArrowUp')) pitch -= 0.8; if (inp.down('ArrowDown')) pitch += 0.8;
     if (gp) { yaw -= gp.lx; pitch -= gp.ly; roll -= gp.rx; }
+    // Aim assist for joystick-style steering: a gentle pull toward a hostile target's lead
+    // marker once it's near the nose. Your own input always wins.
+    if (!this.mouseAim && this.target && this.target.alive && this.cruise < 0.1 && this.isHostileToPlayer(this.target) && st.weapons[0]) {
+      const lead = this.leadPoint(p, this.target, st.weapons[0].weapon.speed * st.weaponMods.vel).sub(p.pos);
+      const e = this.localErr(lead);
+      if (e.angle < 0.35 && p.pos.distanceTo(this.target.pos) < st.weapons[0].weapon.range * 1.3) {
+        const k = 0.75 * (1 - e.angle / 0.35);
+        yaw += clamp(e.yaw * 4, -1, 1) * k * (1 - Math.min(1, Math.abs(yaw)));
+        pitch += clamp(e.pitch * 4, -1, 1) * k * (1 - Math.min(1, Math.abs(pitch)));
+      }
+    }
     const turn = st.turn * (this.cruiseOn ? 0.35 : 1);
     p.steer(yaw * turn, pitch * turn, roll * turn * 1.4, dt);
     // throttle
@@ -418,18 +450,39 @@ export class SpaceMode {
     this.interactTarget = this.findInteract();
     if (this.interactTarget && (inp.pressed('KeyE') || inp.gpPressed(0))) this.doInteract(this.interactTarget);
     if (inp.pressed('KeyL')) { const pl = this.nearPlanet(); if (pl) this.game.land(this, pl.data); else g.ui.toast('No planet in landing range', '#ff7a5a'); }
-    if (inp.pressed('KeyV')) this.viewMode = (this.viewMode + 1) % 2;
+    if (inp.pressed('KeyV') || inp.gpPressed(11)) this.cycleView();
+  }
+  cycleView() {
+    this.viewMode = (this.viewMode + 1) % 3;
+    this.game.settings.spaceView = this.viewMode; this.game.persistSettings();
+    this.game.ui.toast(['Chase camera', 'Cockpit view', 'Wide chase camera'][this.viewMode], '#9fd8ff');
+  }
+  // Yaw/pitch error (radians) from the ship's nose to a world direction.
+  localErr(dir) {
+    _v.copy(dir).applyQuaternion(_q.copy(this.player.quat).invert()).normalize();
+    return { yaw: Math.atan2(-_v.x, -_v.z), pitch: Math.atan2(_v.y, Math.hypot(_v.x, _v.z)), angle: Math.acos(clamp(-_v.z, -1, 1)) };
+  }
+  // Where the guns will fire: the nose, swivelled toward the mouse aim, snapped onto the
+  // target's lead point when the aim is on it.
+  gunAim(out = new THREE.Vector3()) {
+    const p = this.player, st = p.st, f = p.forward(out);
+    let want = this.mouseAim && this.aimDir ? this.aimDir : null;
+    if (this.target && this.target.alive && st.weapons[0]) {
+      const lead = this.leadPoint(p, this.target, st.weapons[0].weapon.speed * st.weaponMods.vel).sub(p.pos).normalize();
+      const ref = want || f;
+      if (lead.angleTo(ref) < (want ? SNAP_MOUSE : SNAP_PAD)) want = lead;
+    }
+    if (want) {
+      const a = want.angleTo(f);
+      if (a <= GIMBAL) out.copy(want);
+      else { const ax = _v.crossVectors(f, want).normalize(); out.applyAxisAngle(ax, GIMBAL); }
+    }
+    return out.normalize();
   }
   firePlayerGuns() {
     const p = this.player, st = p.st, ws = st.weapons;
     const muz = p.mesh.userData.muzzles;
-    let aim = p.forward();
-    // aim assist toward lead point of target
-    if (this.target && this.target.alive && ws[0]) {
-      const lead = this.leadPoint(p, this.target, ws[0].weapon.speed * st.weaponMods.vel);
-      const d = lead.sub(p.pos).normalize();
-      if (d.angleTo(aim) < 0.2) aim = d;
-    }
+    const aim = this.gunAim();
     ws.forEach((w, i) => {
       if ((p.cool[i] || 0) > 0) return;
       const cost = w.weapon.energy;
@@ -630,15 +683,15 @@ export class SpaceMode {
   updateCamera(dt) {
     const p = this.player, cam = this.camera;
     const size = p.hc.size * 2.2;
-    const off = this.viewMode === 0 ? new THREE.Vector3(0, 7 * size, 26 * size) : new THREE.Vector3(0, 2.2 * size, 4 * size);
+    const off = [new THREE.Vector3(0, 7 * size, 26 * size), new THREE.Vector3(0, 2.2 * size, 4 * size), new THREE.Vector3(0, 13 * size, 52 * size)][this.viewMode] || new THREE.Vector3(0, 7 * size, 26 * size);
     const want = off.applyQuaternion(p.quat).add(p.pos);
-    const k = 1 - Math.exp(-(this.viewMode ? 30 : 8) * dt);
+    const k = 1 - Math.exp(-(this.viewMode === 1 ? 30 : 8) * dt);
     if (!p.alive) { cam.lookAt(p.pos); return; }
     this.camPos.lerp(want, k);
     // keep up to speed (avoid lag at cruise)
     this.camPos.addScaledVector(p.vel, dt * (1 - k));
     cam.position.copy(this.camPos);
-    const look = p.forward(_v).multiplyScalar(200).add(p.pos);
+    const look = p.forward(_v).multiplyScalar(this.viewMode === 1 ? 200 : 600).add(p.pos);
     cam.up.copy(UP).applyQuaternion(p.quat);
     cam.lookAt(look);
     const targetFov = 70 + (p.boosting ? 8 : 0) + this.cruise * 18;
@@ -654,6 +707,9 @@ export class SpaceMode {
       hull: p.hull / p.st.hullMax, shield: p.shield / p.st.shieldMax, energy: p.energy / p.st.energyMax,
       hullTxt: `${Math.ceil(p.hull)}/${Math.round(p.st.hullMax)}`, shieldTxt: `${Math.ceil(p.shield)}/${Math.round(p.st.shieldMax)}`,
       speed: Math.round(p.vel.length()), throttle: p.throttle, cruise: this.cruise > 0.5, missiles: p.missiles, boost: p.boosting,
+      // gun reticle at the range you're fighting at, so it shows where shots actually go
+      reticle: this.project(_v3.copy(this.gunAim(_v4)).multiplyScalar(this.target && this.target.alive ? clamp(this.target.pos.distanceTo(p.pos), 300, 2500) : 900).add(p.pos)),
+      aimCursor: this.mouseAim && this.aimDir ? this.project(_v3.copy(this.aimDir).multiplyScalar(900).add(p.pos)) : null,
     });
     // target
     if (this.target && this.target.alive) {

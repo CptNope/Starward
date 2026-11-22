@@ -13,6 +13,24 @@ import { Q } from './quality.js';
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3();
 
+// A simple rifle shown in first person, parented to the camera.
+function buildViewGun() {
+  const g = new THREE.Group();
+  const dark = mat(0x3b424b, { metal: 0.35, rough: 0.5 }), mid = mat(0x5d6875, { metal: 0.3, rough: 0.5 }), glow = mat(0x4dd6ff, { emissive: 0x4dd6ff, ei: 1.2 });
+  const box = (w, h, d, m, x, y, z) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); g.add(b); return b; };
+  box(0.07, 0.09, 0.42, mid, 0, 0, 0);            // receiver
+  box(0.035, 0.035, 0.34, dark, 0, 0.015, -0.36); // barrel
+  box(0.05, 0.12, 0.06, dark, 0, -0.09, 0.06);    // grip
+  box(0.06, 0.08, 0.16, dark, 0, -0.01, 0.26);    // stock
+  box(0.04, 0.03, 0.12, dark, 0, 0.065, -0.02);   // sight rail
+  box(0.012, 0.012, 0.2, glow, 0.037, 0.01, -0.08); // power strip
+  const muzzle = new THREE.Object3D(); muzzle.position.set(0, 0.015, -0.55); g.add(muzzle);
+  g.userData.muzzle = muzzle;
+  g.scale.setScalar(0.62);
+  g.traverse((o) => { if (o.isMesh) { o.renderOrder = 10; o.frustumCulled = false; } });
+  return g;
+}
+
 class Actor {
   constructor(mode, spec) {
     Object.assign(this, spec);
@@ -59,6 +77,10 @@ export class OnFootMode {
     const sp = this.U.species[g.player.species || 0];
     this.pmesh = buildCharacter(sp, g.player.seed || 7, 0x2f6f8f);
     this.scene.add(this.pmesh);
+    // first-person view: hide your body and show a rifle held in front of the camera
+    this.fp = g.settings.footView === 1;
+    this.scene.add(this.camera);
+    this.viewGun = buildViewGun(); this.camera.add(this.viewGun);
     this.ps = personalStats(g.player);
     const P = g.player;
     this.me = {
@@ -198,7 +220,7 @@ export class OnFootMode {
           if (w._mag <= 0) this.reloading = w.weapon.reload * ps.weaponMods.reload;
           else {
             w._mag--; this.fireCool = 1 / (w.weapon.rate * ps.weaponMods.rate);
-            const origin = (muzzleWorld(this.pmesh) || new THREE.Vector3(0.55, 1.55, -0.6).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.yaw).add(me.pos)).clone();
+            const origin = (this.fp ? this.viewGun.userData.muzzle.getWorldPosition(new THREE.Vector3()) : muzzleWorld(this.pmesh) || new THREE.Vector3(0.55, 1.55, -0.6).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.yaw).add(me.pos)).clone();
             this.lastFire = this.time; this.kick = 1;
             const aim = this.aimPoint();
             fireWeapon(this.proj, w, origin, aim.sub(origin).normalize(), this.meProxy, ps.weaponMods, null, this.aimActor);
@@ -208,6 +230,7 @@ export class OnFootMode {
       }
       // medkit
       if (inp.pressed('KeyH') || inp.gpPressed(13)) this.useMedkit();
+      if (inp.pressed('KeyV') || inp.gpPressed(11)) this.cycleView();
       // regen + hazard
       if (this.time - me.lastHit > 3) me.shield = Math.min(ps.pShieldMax, me.shield + ps.pShieldRegen * dt);
       if (env.hazard) { const hz = env.hazard * 0.5 * ps.hazard * dt; if (me.shield > 0) me.shield = Math.max(0, me.shield - hz); else { me.hp -= hz * 0.5; if (me.hp <= 0) { me.alive = false; g.onPlayerDeath('foot'); } } }
@@ -368,8 +391,28 @@ export class OnFootMode {
       if (got > 0) { g.ui.toast(`+${got} ${d.label}`, '#ffd34d'); g.addXP(4 + got, null); this.scene.remove(d.mesh); disposeTree(d.mesh); this.deposits.splice(this.deposits.indexOf(d), 1); }
     }
   }
+  cycleView() {
+    this.fp = !this.fp;
+    this.game.settings.footView = this.fp ? 1 : 0; this.game.persistSettings();
+    this.game.ui.toast(this.fp ? 'First-person view' : 'Third-person view', '#9fd8ff');
+  }
   updateCamera(dt) {
     const me = this.me, cam = this.camera;
+    this.pmesh.visible = !this.fp; this.viewGun.visible = this.fp && this.ps.weapons.length > 0;
+    if (this.fp) {
+      // eyes sit just below the top of the head; the view rifle bobs while walking and kicks when firing
+      const h = this.pmesh.userData.height || 2.3;
+      cam.position.set(me.pos.x, me.pos.y + h * 0.86, me.pos.z);
+      cam.rotation.set(this.pitch, this.yaw, 0, 'YXZ');
+      this.recoil = Math.max(0, (this.recoil || 0) - dt * 0.2);
+      cam.rotation.x += this.recoil;
+      const vg = this.viewGun, bob = this.walkT || 0;
+      this.gunKick = Math.max(0, (this.gunKick || 0) - dt * 6);
+      if (this.time - (this.lastFire ?? -9) < 0.02) this.gunKick = 1;
+      vg.position.set(0.2 + Math.sin(bob * 5) * 0.008, -0.2 + Math.abs(Math.cos(bob * 5)) * 0.008, -0.58 + this.gunKick * 0.04);
+      vg.rotation.set(this.gunKick * 0.08, 0.05, 0);
+      return;
+    }
     const head = _v.copy(me.pos); head.y += 1.9;
     const dist = this.env.type === 'interior' ? 3.9 : 4.8;
     const off = new THREE.Vector3(1.1, 0.45, dist);

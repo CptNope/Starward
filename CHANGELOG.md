@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.5.0 — 2026-11-21 — Better dogfights and views
+
+### Changed
+- **Mouse aim.** With the mouse captured, the mouse now moves an aim ring and your ship turns to follow it, instead of acting as a joystick that never re-centres. The old steering is still available under Pause → Controls.
+- **An honest gun reticle.** In the chase view, the old crosshair only lined up with your guns at 200 m. The reticle now sits where your shots will actually go, at the range you're fighting at.
+- **Guns lock onto the lead.** Guns swivel up to about 11° toward your aim, and lock onto the gold lead diamond when your aim is on it.
+- **Aim assist on gamepad and touch.** The ship nudges itself toward a locked target's lead diamond when it's near the nose. Your own stick input always wins.
+- In testing against a pirate fighter, a pilot with human reaction time went from winning 4 of 6 fights in about a minute to winning every fight in about 9 seconds with mouse aim, or 16 seconds with a stick.
+
+### Added
+- **Switch views everywhere.** On foot, on planets and while boarding, **V** (or R3 on a gamepad) now switches between third person and a new first-person view with your rifle in hand. In space, **V** cycles chase, cockpit and a new wide chase camera. Touch screens get a VIEW button. Your choice is remembered.
+
+### Fixed
+- The gold lead diamond lost its diamond shape when a target was locked.
+
 ## 0.4.1 — 2026-11-21 — Readable gunfights
 
 ### Changed

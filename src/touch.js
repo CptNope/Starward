@@ -12,7 +12,7 @@ export class Touch {
     this.btn = {}; this.btnTouch = {};
     const el = this.el = document.createElement('div'); el.id = 'touch'; el.style.display = 'none';
     el.innerHTML = `<div class="tz" id="tzL"></div><div class="tz" id="tzR"></div><div class="stick" id="stL"><i></i></div><div class="stick" id="stR"><i></i></div><div id="tbtns"></div>
-      <div id="ttop"><button data-t="map">MAP</button><button data-t="bag">GEAR</button><button data-t="menu">MENU</button></div>`;
+      <div id="ttop"><button data-t="view">VIEW</button><button data-t="map">MAP</button><button data-t="bag">GEAR</button><button data-t="menu">MENU</button></div>`;
     document.body.appendChild(el);
     const opts = { passive: false };
     addEventListener('touchstart', (e) => { if (!this.active) this.activate(); }, { passive: true });
@@ -24,7 +24,8 @@ export class Touch {
     el.querySelector('#ttop').addEventListener('touchstart', (e) => {
       const b = e.target.closest('[data-t]'); if (!b) return; e.preventDefault();
       const ui = this.game.ui; if (!this.game.mode) return;
-      if (b.dataset.t === 'menu') ui.modal ? ui.close() : ui.pause();
+      if (b.dataset.t === 'view') { if (!ui.modal) this.game.mode.cycleView?.(); }
+      else if (b.dataset.t === 'menu') ui.modal ? ui.close() : ui.pause();
       else { const tab = b.dataset.t === 'map' ? 'galaxy' : 'inventory'; if (ui.modal === 'menu' && ui.tab === tab) ui.close(); else if (!ui.modal || ui.modal === 'menu') { ui.sel = null; ui.openMenu(tab); } }
     }, opts);
     this.setMode('space');

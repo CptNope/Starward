@@ -22,7 +22,7 @@ Made by **[Jeremy Anderson Tech](https://jeremyanderson.tech/)**
 
 ## What you can do
 
-- **Fly and fight** in arcade 6DOF space combat: gimballed guns with a lead indicator, homing missiles, boost, cruise drive, and five damage types that each hit shields and hulls differently.
+- **Fly and fight** in arcade 6DOF space combat: mouse-aim flight, gimballed guns that lock onto a lead indicator, chase or cockpit cameras, homing missiles, boost, cruise drive, and five damage types that each hit shields and hulls differently.
 - **Explore a living galaxy.** 140 star systems, seven factions with their own ideologies, territory and wars, and procedural alien species with their own naming languages. Faction fleets patrol, trade, raid and fight each other whether you're there or not.
 - **Leave the ship.** Land on planets with outposts, pirate camps, alien ruins, wildlife, ore to mine and relic vaults. Disable ships, board them, fight the crew, then **claim the ship as your own** or scrap it for salvage.
 - **Loot endlessly.** Gear comes in seven tiers from Scrap to Mythic, with random bonus stats, procedural names and brands. Legendary weapons roll special effects like twin shots, homing, chain lightning and piercing.

@@ -43,11 +43,12 @@ Danger and loot level rise the farther you travel from your starting system. Unc
 
 ## Flying and combat
 
-- Steer with the mouse; the gold square is your virtual stick. Click the view to capture the mouse for finer control.
+- Steer with the mouse. Click the view to capture it, then move the **gold ring** where you want to go and the ship turns to follow. Prefer the old steering, where the cursor works like a joystick? Switch it under **Pause → Controls**.
 - **W / S** set throttle, **X** stops, **A / D** yaw, **Q / E** roll.
 - **Boost** (**Shift**) burns energy. **Cruise** (**C**) crosses a system fast but can't start near hostiles and drops out when you're hit.
 - **T** cycles targets (hostiles first); **R** targets whatever is ahead.
-- Guns are gimballed: aim near the **gold lead diamond** and shots bend onto it.
+- The **blue reticle** shows where your guns will hit. Guns swivel toward your aim, and when your aim is on the **gold lead diamond** they lock onto it, so put the ring on the diamond and fire. On a gamepad or touch, the ship also nudges itself toward a locked target's diamond.
+- **V** cycles the camera: chase, cockpit and a wide chase view.
 - Missiles (**right mouse** / **F**) home on your locked target. Restock them at stations.
 - Shields regenerate after a few seconds without taking damage. Hull doesn't: repair it at a station or learn **Damage Control**.
 - If your ship is destroyed you wake at the last station you docked at, minus 15% of your credits and your cargo.
@@ -385,7 +386,7 @@ Buy hulls at station shipyards (your old ship is traded in for 45% of its price)
 
 | Key | Action |
 |---|---|
-| Mouse | Steer (click to capture) |
+| Mouse | Aim; the ship follows (click to capture) |
 | W / S · X | Throttle · all stop |
 | A / D · Q / E | Yaw · roll |
 | Shift · C | Boost · cruise |
@@ -394,7 +395,7 @@ Buy hulls at station shipyards (your old ship is traded in for 45% of its price)
 | T · R | Cycle targets · target ahead |
 | E | Dock, board, hail |
 | L | Land |
-| V | Camera |
+| V | Camera: chase, cockpit, wide |
 | M | Galaxy map |
 
 ### Keyboard and mouse: on foot
@@ -408,6 +409,7 @@ Buy hulls at station shipyards (your old ship is traded in for 45% of its price)
 | Space · Shift | Jump · sprint |
 | E | Talk, loot, mine, exit |
 | H | Medkit |
+| V | First / third person |
 
 ### Menus
 
@@ -425,7 +427,7 @@ Buy hulls at station shipyards (your old ship is traded in for 45% of its price)
 - **Left thumb:** steer (flying) or move (on foot).
 - **Right thumb:** drag for throttle and roll (flying) or to look (on foot).
 - **Buttons:** FIRE, MSL, BOOST, USE, TARGET, CRUISE when flying; FIRE, JUMP, USE, RELOAD, SWAP, HEAL, SPRINT on foot.
-- **Top right:** MAP, GEAR, MENU.
+- **Top right:** VIEW (camera), MAP, GEAR, MENU.
 
 ### Gamepad (standard layout)
 
@@ -440,6 +442,7 @@ Buy hulls at station shipyards (your old ship is traded in for 45% of its price)
 | X | — | Reload |
 | Y | Target | Swap weapon |
 | L3 | Cruise | Sprint |
+| R3 | Camera | First / third person |
 | Back · Start | Inventory · pause | Inventory · pause |
 
 ## Graphics, saving and troubleshooting

@@ -2,7 +2,7 @@
 import { TIERS, DAMAGE_TYPES, BIOMES, HULL_CLASSES, SKILLS, SKILL_TREES, SPECIALS, NPC_ROLES, IDEOLOGIES } from './data.js';
 import { COMMODITIES } from './gen/items.js';
 
-export const VERSION = '0.4.1';
+export const VERSION = '0.5.0';
 export const LINKS = {
   site: 'https://jeremyanderson.tech/',
   book: 'https://jeremyanderson.tech/book-a-call/',
@@ -29,8 +29,8 @@ export const GUIDE = [
     <li><b>Land</b> on planets (<kbd>L</kbd>) to mine ore, open caches and find relics in alien ruins.</li></ol>
     <p class="muted">Danger and loot level rise the farther you travel from your starting system. Unclaimed space and pirate territory are the most dangerous — and the most rewarding.</p>` },
   { id: 'flight', title: 'Flying & combat', html: () => `
-    <p>Steer with the mouse (the gold square is your virtual stick), set throttle with <kbd>W</kbd>/<kbd>S</kbd>, roll with <kbd>Q</kbd>/<kbd>E</kbd>. <b>Boost</b> (<kbd>Shift</kbd>) burns energy; <b>cruise</b> (<kbd>C</kbd>) crosses a system fast but can't be used near hostiles and drops out when you're hit.</p>
-    <p>Lock a target with <kbd>T</kbd> (or <kbd>R</kbd> for whatever is ahead). Your guns are gimballed: aim near the <b>gold lead diamond</b> and shots bend onto it. Missiles (<kbd>RMB</kbd>/<kbd>F</kbd>) home on your locked target; restock them at stations.</p>
+    <p>Steer with the mouse: with the mouse captured, move the <b>gold ring</b> where you want to go and the ship turns to follow it (prefer the old cursor-as-joystick steering? switch it under <b>Pause → Controls</b>). Set throttle with <kbd>W</kbd>/<kbd>S</kbd>, roll with <kbd>Q</kbd>/<kbd>E</kbd>. <b>Boost</b> (<kbd>Shift</kbd>) burns energy; <b>cruise</b> (<kbd>C</kbd>) crosses a system fast but can't be used near hostiles and drops out when you're hit.</p>
+    <p>Lock a target with <kbd>T</kbd> (or <kbd>R</kbd> for whatever is ahead). The <b>blue reticle</b> shows exactly where your guns will hit. Guns swivel toward your aim, and when your aim is on the <b>gold lead diamond</b> they lock onto it, so put the ring on the diamond and fire. On a gamepad or touch, the ship also nudges itself toward a locked target's diamond. Missiles (<kbd>RMB</kbd>/<kbd>F</kbd>) home on your locked target; restock them at stations.</p>
     <p>Shields regenerate after a few seconds without taking damage. Hull doesn't — repair it at a station, or learn <b>Damage Control</b>.</p>
     <p>If your ship is destroyed you wake at the last station you docked at, minus some credits and your cargo.</p>` },
   { id: 'damage', title: 'Damage types', html: () => `
@@ -100,11 +100,11 @@ export const GUIDE = [
     <p>Buy hulls at station shipyards (your old ship is traded in) or capture them by boarding.</p>
     <p><b>Crew</b> give passive bonuses that grow with their level: ${NPC_ROLES.map(r => `${r.name.toLowerCase()} → ${r.crew.label}`).join(', ')}. Hire them in station bars or recruit them on planets and aboard friendly ships.</p>` },
   { id: 'controls', title: 'Controls', html: () => `
-    <h4>Keyboard & mouse — flying</h4>${table(['Key', 'Action'], [['Mouse', 'Steer (click to capture)'], ['W / S · X', 'Throttle · all stop'], ['A / D · Q / E', 'Yaw · roll'], ['Shift · C', 'Boost · cruise'], ['LMB / Space · RMB / F', 'Guns · missile'], ['T · R', 'Cycle targets · target ahead'], ['E · L', 'Dock / board / hail · land'], ['V · M', 'Camera · galaxy map']])}
-    <h4>On foot</h4>${table(['Key', 'Action'], [['WASD · Mouse', 'Move · look'], ['LMB · R · 1/2', 'Fire · reload · swap'], ['Space · Shift', 'Jump · sprint'], ['E · H', 'Interact · medkit']])}
+    <h4>Keyboard & mouse — flying</h4>${table(['Key', 'Action'], [['Mouse', 'Steer (click to capture)'], ['W / S · X', 'Throttle · all stop'], ['A / D · Q / E', 'Yaw · roll'], ['Shift · C', 'Boost · cruise'], ['LMB / Space · RMB / F', 'Guns · missile'], ['T · R', 'Cycle targets · target ahead'], ['E · L', 'Dock / board / hail · land'], ['V · M', 'Camera (chase, cockpit, wide) · galaxy map']])}
+    <h4>On foot</h4>${table(['Key', 'Action'], [['WASD · Mouse', 'Move · look'], ['LMB · R · 1/2', 'Fire · reload · swap'], ['Space · Shift', 'Jump · sprint'], ['E · H', 'Interact · medkit'], ['V', 'First / third person']])}
     <h4>Menus</h4><p>I / Tab inventory · K skills · J missions · M map · G guide · Esc / P pause</p>
-    <h4>Touch</h4><p>Left thumb steers (flying) or moves (on foot). Right thumb drags for throttle and roll, or to look. Buttons cover fire, missiles, boost, use, target and cruise, or jump, reload, swap, heal and sprint. MAP, GEAR and MENU are top right.</p>
-    <h4>Gamepad</h4><p>Sticks fly / move and look · RT fire · LT missile · RB boost · A interact (flying) / jump (on foot) · B interact on foot · Y target / swap · X reload · L3 cruise / sprint · Back inventory · Start pause.</p>` },
+    <h4>Touch</h4><p>Left thumb steers (flying) or moves (on foot). Right thumb drags for throttle and roll, or to look. Buttons cover fire, missiles, boost, use, target and cruise, or jump, reload, swap, heal and sprint. VIEW, MAP, GEAR and MENU are top right.</p>
+    <h4>Gamepad</h4><p>Sticks fly / move and look · RT fire · LT missile · RB boost · A interact (flying) / jump (on foot) · B interact on foot · Y target / swap · X reload · L3 cruise / sprint · R3 camera · Back inventory · Start pause.</p>` },
   { id: 'graphics', title: 'Graphics & performance', html: (g) => `
     <p>Starward picks a quality preset for your device and then watches the frame rate. When frames drop it lowers render resolution first, and drops a preset only if that isn't enough.</p>
     <p>Change it under <b>Pause → Graphics</b>: Auto, Low, Medium or High, plus glow (bloom) and an FPS counter. Texture and terrain detail apply the next time you enter a system or land.</p>

@@ -99,11 +99,19 @@ export class UI {
     this.label('#b1 span', 'Shield'); this.label('#b2 span', 'Hull'); this.show('#b3', true);
     this.set('#spd', `<b>${Math.round(d.speed / 5) * 5}</b> m/s ${d.cruise ? '<span class="cruise">CRUISE</span>' : d.boost ? '<span class="boost">BOOST</span>' : ''}<div class="thr"><i style="width:${Math.round(d.throttle * 20) * 5}%"></i></div><div class="mis">Missiles ${d.missiles}</div>`);
     const touch = this.game.touch && this.game.touch.active;
+    // gun reticle follows where the guns actually point
+    const ch = $('#crosshair');
+    if (d.reticle && !d.reticle.behind) { ch.style.left = `${d.reticle.x}px`; ch.style.top = `${d.reticle.y}px`; } else { ch.style.left = ''; ch.style.top = ''; }
     this.show('#vcursor', !touch);
-    if (!touch) { const vc = this.game.input.vc; $('#vcursor').style.transform = `translate(${(vc.x / 2.4 + 0.5) * innerWidth}px, ${(vc.y / 2.4 + 0.5) * innerHeight}px)`; }
+    if (!touch) {
+      if (d.aimCursor) $('#vcursor').style.transform = d.aimCursor.behind ? 'translate(-99px,-99px)' : `translate(${d.aimCursor.x}px, ${d.aimCursor.y}px)`;
+      else { const vc = this.game.input.vc; $('#vcursor').style.transform = `translate(${(vc.x / 2.4 + 0.5) * innerWidth}px, ${(vc.y / 2.4 + 0.5) * innerHeight}px)`; }
+      $('#vcursor').classList.toggle('aim', !!d.aimCursor);
+    }
     this.top();
   }
   footHud(d) {
+    const ch = $('#crosshair'); if (ch.style.left) { ch.style.left = ''; ch.style.top = ''; }
     this.bar('#b1', d.shield, d.shieldTxt); this.bar('#b2', d.hp, d.hpTxt); this.show('#b3', false);
     this.label('#b1 span', 'Shield'); this.label('#b2 span', 'Health');
     this.show('#lockhint', !this.game.input.locked && !(this.game.touch && this.game.touch.active));
@@ -116,7 +124,7 @@ export class UI {
     this.last.tOff = false; tp.style.display = '';
     this.set('#tpanel', `<div class="tn" style="color:${t.hostile ? '#ff6b6b' : t.color}">${esc(t.name)}</div><div class="ts">${esc(t.cls)} · <span style="color:${t.color}">${esc(t.faction)}</span></div><div class="ts">${t.disabled ? '<b style="color:#ffd34d">DISABLED — board with USE/E</b>' : t.hostile ? '<b style="color:#ff6b6b">HOSTILE</b>' : 'Neutral'} · ${fmt(Math.round(t.dist / 10) * 10)} m</div><div class="tb sh"><i style="width:${Math.round(t.shield * 100)}%"></i></div><div class="tb hu"><i style="width:${Math.round(Math.max(0, t.hull) * 100)}%"></i></div>`);
     if (t.screen && !t.screen.behind) { br.style.display = ''; br.style.transform = `translate(${t.screen.x}px,${t.screen.y}px)`; br.style.borderColor = t.hostile ? '#ff5a5a' : '#7ee08a'; } else br.style.display = 'none';
-    if (t.lead && !t.lead.behind && t.hostile) { ld.style.display = ''; ld.style.transform = `translate(${t.lead.x}px,${t.lead.y}px)`; } else ld.style.display = 'none';
+    if (t.lead && !t.lead.behind && t.hostile) { ld.style.display = ''; ld.style.transform = `translate(${t.lead.x}px,${t.lead.y}px) rotate(45deg)`; } else ld.style.display = 'none';
   }
   radar(blips) {
     this.radarTick = ((this.radarTick || 0) + 1) % 3; if (this.radarTick) return;
@@ -491,7 +499,8 @@ export class UI {
       <div class="acts"><button data-a="${g.player ? 'pauseback' : 'titleback'}">Back</button></div></div>`);
   }
   controls() {
-    this.open('pause', `<div class="panel dlg wide"><div class="dn big">Controls</div><div class="cols2"><div><h3>Flying</h3><div class="keys">Mouse — steer (click to capture the mouse)<br>W / S — throttle · X — all stop<br>A / D — yaw · Q / E — roll<br>Shift — boost · C — cruise drive<br>LMB / Space — guns · RMB / F — missile<br>T — cycle targets · R — target ahead<br>E — dock / board / hail · L — land<br>V — camera · M — galaxy map</div></div><div><h3>On foot</h3><div class="keys">WASD — move · Mouse — look<br>LMB — fire · R — reload · 1 / 2 — swap weapon<br>Space — jump · Shift — sprint<br>E — talk / loot / mine / exit · H — medkit</div><h3>Menus</h3><div class="keys">I / Tab — inventory · K — skills · J — missions<br>M — galaxy map · Esc / P — pause</div><h3>Gamepad</h3><div class="keys">Sticks fly / move & look · RT fire · LT missile · RB boost · A interact/jump · B interact · Y target/swap · X reload · L3 cruise · Start pause</div></div></div><div class="acts"><button data-a="${this.game.player ? 'pauseback' : 'titleback'}">Back</button></div></div>`);
+    this.open('pause', `<div class="panel dlg wide"><div class="dn big">Controls</div><div class="cols2"><div><h3>Flying</h3><div class="keys">Mouse — aim; the ship turns to follow (click to capture the mouse)<br>W / S — throttle · X — all stop<br>A / D — yaw · Q / E — roll<br>Shift — boost · C — cruise drive<br>LMB / Space — guns · RMB / F — missile<br>T — cycle targets · R — target ahead<br>E — dock / board / hail · L — land<br>V — camera (chase, cockpit, wide) · M — galaxy map</div>
+      <div class="acts col"><button data-a="toggleFlight">Mouse flight: ${this.game.settings.flight === 'classic' ? 'Classic (cursor sets turn rate)' : 'Mouse aim (ship follows the cursor)'}</button></div></div><div><h3>On foot</h3><div class="keys">WASD — move · Mouse — look<br>LMB — fire · R — reload · 1 / 2 — swap weapon<br>Space — jump · Shift — sprint<br>E — talk / loot / mine / exit · H — medkit<br>V — first / third person</div><h3>Menus</h3><div class="keys">I / Tab — inventory · K — skills · J — missions<br>M — galaxy map · Esc / P — pause</div><h3>Gamepad</h3><div class="keys">Sticks fly / move & look · RT fire · LT missile · RB boost · A interact/jump · B interact · Y target/swap · X reload · L3 cruise / sprint · R3 camera · Start pause</div></div></div><div class="acts"><button data-a="${this.game.player ? 'pauseback' : 'titleback'}">Back</button></div></div>`);
   }
   title() {
     const has = this.game.hasSave();
@@ -556,6 +565,7 @@ UI.prototype.handlers = {
   controls() { this.controls(); },
   pauseback() { this.pause(); },
   titleback() { this.title(); },
+  toggleFlight() { const s = this.game.settings; s.flight = s.flight === 'classic' ? 'aim' : 'classic'; this.game.persistSettings(); this.controls(); },
   toggleBloom() { this.game.settings.bloom = !this.game.settings.bloom; this.game.persistSettings(); this.graphics(); },
   toggleFps() { this.game.settings.showFps = !this.game.settings.showFps; this.game.persistSettings(); this.graphics(); },
   toggleAuto() { const g = this.game; g.settings.autoQuality = !g.settings.autoQuality; if (!g.settings.autoQuality) { g.governor.scale = 1; g.applyResolution(); } g.persistSettings(); this.graphics(); },
