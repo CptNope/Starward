@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.6.0 — 2026-11-22 — New models
+
+Every model in the game was rebuilt. See them all in [docs/images/models.jpg](docs/images/models.jpg).
+
+### Changed
+- **Ships.** Each of the eight hull classes now has its own shape instead of one shape at eight sizes: slim scouts and interceptors, slab-armoured gunships with weapon pods, corvettes and frigates with a raised bridge and turrets, freighters hauling rows of containers, and a three-tiered Dreadnought with a command tower, hangar bays and six turrets.
+- **Capital ship turrets are real.** A Dreadnought's shots now leave from the turrets you can see on its hull.
+- **Cockpit view** puts the camera in your ship's own cockpit or on its bridge.
+- **Stations.** Seven kinds, chosen by the station's name: Station (spinning wheel), Spire, Citadel, Dock (shipyard), Exchange (trade hub), Outpost and Haven (asteroid base). Wheels, spires and hubs turn slowly.
+- **Creatures.** Six body plans (four-legged beasts, raptors, armoured crawlers and scorpions, spiders, floaters and flyers) with jointed legs, tails, wings and tentacles that move, and a lunge when they bite. Ruin Guardians are now stone golems with a glowing core.
+- **Characters.** A second pass on the 0.3.1 rig: rounded limbs, layered armour, and gear by job. Soldiers and gunners wear full helmets, pilots a flight helmet and jetpack, engineers a hard hat and radio pack, medics white armour, merchants and scientists long coats, smugglers a hood and a single pauldron. Bosses get a crest and bigger pauldrons.
+- Parked ships on landing pads idle their engines instead of burning at full glow.
+
+### Performance
+- Ships and stations still bake to two draw calls each. In a test scene with 8 creatures and 6 characters, the Low preset draws the same as before (130 draw calls against 128); High goes from 171 to 190 draw calls with the same frame time.
+- On the Low preset, characters drop small plates, limbs use four sides instead of eight, and crawler legs move as two rigid sets.
+
+### Developer notes
+- New modules: `geo.js` (lofted hulls, wings, mirroring), `ships.js`, `stations.js`, `creatures.js`.
+- The Player Guide generator now includes the 0.4.1 and 0.5.0 guide text that had only been edited into the generated file.
+
 ## 0.5.0 — 2026-11-21 — Better dogfights and views
 
 ### Changed

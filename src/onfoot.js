@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { RNG, clamp } from './rng.js';
 import { DAMAGE_TYPES } from './data.js';
 import { personalStats, changeRep } from './player.js';
-import { buildCharacter, buildCreature, animateCharacter, muzzleWorld, buildShip, glowSprite, mat, disposeTree } from './models.js';
+import { buildCharacter, animateCharacter, muzzleWorld, glowSprite, mat, disposeTree } from './models.js';
+import { buildCreature, animateCreature } from './creatures.js';
 
 // Aim-in tell: an armed NPC who gets a shot on a new target raises the rifle and charges a glow
 // at the muzzle for WINDUP seconds before its first shot, so you get a fair warning.
@@ -75,7 +76,7 @@ export class OnFootMode {
     const spawn = env.build(this.scene, this);
     // player
     const sp = this.U.species[g.player.species || 0];
-    this.pmesh = buildCharacter(sp, g.player.seed || 7, 0x2f6f8f);
+    this.pmesh = buildCharacter(sp, g.player.seed || 7, 0x2f6f8f, { role: 'captain' });
     this.scene.add(this.pmesh);
     // first-person view: hide your body and show a rifle held in front of the camera
     this.fp = g.settings.footView === 1;
@@ -112,8 +113,8 @@ export class OnFootMode {
   }
   addActor(spec) {
     let mesh;
-    if (spec.kind === 'creature') mesh = buildCreature(spec.seed, spec.level);
-    else { const sp = this.U.species[spec.npc.species]; const fc = spec.npc.faction !== null ? this.U.factions[spec.npc.faction].color : 0x666666; mesh = buildCharacter(sp, spec.npc.seed, new THREE.Color(fc).multiplyScalar(0.6).getHex()); }
+    if (spec.kind === 'creature') mesh = buildCreature(spec.seed, spec.level, spec.name === 'Ruin Guardian' ? 'guardian' : null);
+    else { const sp = this.U.species[spec.npc.species]; const fc = spec.npc.faction !== null ? this.U.factions[spec.npc.faction].color : 0x666666; mesh = buildCharacter(sp, spec.npc.seed, new THREE.Color(fc).multiplyScalar(0.6).getHex(), { role: spec.captain ? 'captain' : spec.npc.role, boss: !!spec.boss }); }
     mesh.position.copy(spec.pos); mesh.position.y = this.env.height(spec.pos.x, spec.pos.z);
     mesh.rotation.y = this.rng.range(0, 6.28);
     this.scene.add(mesh);
@@ -294,7 +295,7 @@ export class OnFootMode {
       const d = t.pos.distanceTo(a.pos);
       a.mesh.rotation.y = Math.atan2(-(t.pos.x - a.pos.x), -(t.pos.z - a.pos.z));
       if (a.kind === 'creature') {
-        if (d > a.radius + 1.6) moveTo = t.pos; else if ((a.cool -= dt) <= 0) { a.cool = 1.1; const dm = 6 + a.level * 3.2; t.isPlayer ? this.playerHit(dm, 'kinetic') : t.hit(dm, 'kinetic', { owner: a }); }
+        if (d > a.radius + 1.6) moveTo = t.pos; else if ((a.cool -= dt) <= 0) { a.cool = 1.1; a.lunge = 1; const dm = 6 + a.level * 3.2; t.isPlayer ? this.playerHit(dm, 'kinetic') : t.hit(dm, 'kinetic', { owner: a }); }
         speed *= 1.25;
       } else {
         const w = a.npc.weapon.weapon;
@@ -329,11 +330,11 @@ export class OnFootMode {
         if (!t) a.mesh.rotation.y = Math.atan2(-dir.x, -dir.z);
         env.collide(a.pos, a.radius);
         a.walkT += dt;
-        if (a.kind === 'creature') { const L = a.mesh.userData.legs; L.forEach((lg, i) => lg.rotation.x = Math.sin(a.walkT * 10 + i * 1.7) * 0.5); }
-        else a.moving = speed;
+        a.moving = speed;
       }
     }
-    if (a.kind !== 'creature') {
+    if (a.kind === 'creature') { animateCreature(a.mesh, dt, { walkT: a.walkT, speed: a.moving || 0, lunge: a.lunge || 0 }); a.moving = 0; a.lunge = 0; }
+    else {
       let pitch = 0;
       if (t) { const tp = t.isPlayer ? this.meProxy.pos : t.center; pitch = Math.atan2(tp.y - (a.pos.y + a.height * 0.62), Math.hypot(tp.x - a.pos.x, tp.z - a.pos.z)); }
       animateCharacter(a.mesh, dt, { walkT: a.walkT, speed: a.moving || 0, aim: t ? 1 : 0, pitch: clamp(pitch, -0.9, 0.9), kick: a.kick || 0 });

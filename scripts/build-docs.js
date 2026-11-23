@@ -27,16 +27,17 @@ const md = `# Starward Player Guide
 8. [Capital ships](#capital-ships)
 9. [Wingmen](#wingmen)
 10. [Workshop and crafting](#workshop-and-crafting)
-11. [Planets and exploration](#planets-and-exploration)
-12. [Loot and gear](#loot-and-gear)
-13. [Skills](#skills)
-14. [Factions and reputation](#factions-and-reputation)
-15. [Trading and economy](#trading-and-economy)
-16. [Contracts](#contracts)
-17. [Ships and crew](#ships-and-crew)
-18. [Controls](#controls)
-19. [Graphics, saving and troubleshooting](#graphics-saving-and-troubleshooting)
-20. [About](#about)
+11. [Stations](#stations)
+12. [Planets and exploration](#planets-and-exploration)
+13. [Loot and gear](#loot-and-gear)
+14. [Skills](#skills)
+15. [Factions and reputation](#factions-and-reputation)
+16. [Trading and economy](#trading-and-economy)
+17. [Contracts](#contracts)
+18. [Ships and crew](#ships-and-crew)
+19. [Controls](#controls)
+20. [Graphics, saving and troubleshooting](#graphics-saving-and-troubleshooting)
+21. [About](#about)
 
 ## Getting started
 
@@ -54,11 +55,12 @@ Danger and loot level rise the farther you travel from your starting system. Unc
 
 ## Flying and combat
 
-- Steer with the mouse; the gold square is your virtual stick. Click the view to capture the mouse for finer control.
+- Steer with the mouse. Click the view to capture it, then move the **gold ring** where you want to go and the ship turns to follow. Prefer the old steering, where the cursor works like a joystick? Switch it under **Pause → Controls**.
 - **W / S** set throttle, **X** stops, **A / D** yaw, **Q / E** roll.
 - **Boost** (**Shift**) burns energy. **Cruise** (**C**) crosses a system fast but can't start near hostiles and drops out when you're hit.
 - **T** cycles targets (hostiles first); **R** targets whatever is ahead.
-- Guns are gimballed: aim near the **gold lead diamond** and shots bend onto it.
+- The **blue reticle** shows where your guns will hit. Guns swivel toward your aim, and when your aim is on the **gold lead diamond** they lock onto it, so put the ring on the diamond and fire. On a gamepad or touch, the ship also nudges itself toward a locked target's diamond.
+- **V** cycles the camera: chase, cockpit and a wide chase view.
 - Missiles (**right mouse** / **F**) home on your locked target. Restock them at stations.
 - Shields regenerate after a few seconds without taking damage. Hull doesn't: repair it at a station or learn **Damage Control**.
 - If your ship is destroyed you wake at the last station you docked at, minus 15% of your credits and your cargo.
@@ -94,6 +96,8 @@ When you knock out a ship, it sometimes ends up **disabled** (shown in gold) ins
    - **Scuttle it** for two pieces of gear, credits and XP.
    - **Leave** it adrift.
 
+**Reading a gunfight.** An enemy who spots you raises its rifle, and the muzzle starts to glow red. When the glow peaks, about a second later, it fires, so that's your cue to strafe or duck behind cover. Allies show the same glow in blue.
+
 You can also **hail** friendly or neutral ships (**E** when close) to hear rumors, trade, visit aboard peacefully, or demand their cargo. Demanding is piracy: it costs reputation, and they may fight back. Your odds improve with Intimidation and level.
 
 ## Signals and events
@@ -113,6 +117,8 @@ Fly through the cargo crate to collect it. Some rocks also give Workshop parts. 
 ## Capital ships
 
 **Dreadnoughts** prowl dangerous systems (threat 4+), usually with escorts. They turn slowly, but six independent turrets track everything around them, and many carry missile racks. Stay mobile, strip shields with ion or energy weapons, and bring wingmen.
+
+Each turret you see on the hull is a real gun: shots leave from the turrets, so the side facing you is the one shooting at you.
 
 Their huge hull makes them hard to disable, but if you manage it you can board and claim one. Destroying one drops a pile of high-quality loot. A ⚠ marker shows where they are.
 
@@ -136,6 +142,10 @@ Every station has a **Workshop** that runs on **parts**. You get parts by salvag
 
 Equipped gear can be upgraded and reforged in place. Both cost parts plus some credits, and the cost rises with tier and level.
 
+## Stations
+
+A station's shape tells you what it is before you read its name: a **Station** is a spinning wheel, a **Spire** a tall needle of stacked decks, a **Citadel** an armoured fortress with gun bastions, a **Dock** a shipyard with a hull on the slip, an **Exchange** a trade hub with cargo on its docking arms, an **Outpost** a cluster of pressurised cans and solar wings, and a **Haven** a base dug into an asteroid.
+
 ## Planets and exploration
 
 Fly within range of a planet and press **L** to land. Terrain, props, outposts, wildlife and loot are all generated from the planet's seed.
@@ -146,6 +156,8 @@ ${t(['Biome', 'Hazard'], BIOMES.map(b => [b.name, b.hazard ? `${b.hazard} (drain
 - **Alien ruins** hold relic vaults guarded by creatures. Relics sell for a fortune.
 - **Deposits** of ore, void crystals and relics can be extracted into your cargo hold.
 - **Locked caches** (red) need the Hacking skill.
+
+Wildlife comes in many body plans: four-legged beasts, two-legged raptors, low armoured crawlers (some with a scorpion's stinger), spiders, drifting floaters and winged flyers. All of them bite at close range, so keep your distance. **Ruin Guardians** are stone golems with a glowing core.
 
 Walk back to your ship and press **E** to launch.
 
@@ -193,6 +205,8 @@ You can hold five contracts at once. Targets show as gold diamonds on the galaxy
 ## Ships and crew
 
 ${t(['Hull', 'Hull pts', 'Shield', 'Speed', 'Turn', 'Guns', 'Crew', 'Cargo', 'Price'], HULL_CLASSES.map(h => [`**${h.name}**`, h.hull, h.shield, h.speed, h.turn, h.slots, h.crew, h.cargo, `${h.price.toLocaleString('en-US')} cr`]))}
+Every hull class has its own look. Scouts and interceptors are slim darts, gunships are flying slabs of armour with weapon pods, corvettes and frigates carry a raised bridge and turrets, freighters haul rows of cargo containers, and a Dreadnought is a three-tiered warship with a command tower. In the cockpit view you sit in your ship's own cockpit or on its bridge.
+
 Buy hulls at station shipyards (your old ship is traded in for 45% of its price) or capture them by boarding. Dreadnoughts are rarely for sale.
 
 **Crew** give passive bonuses that grow with their level. Leadership adds crew slots and strengthens bonuses.
@@ -202,10 +216,10 @@ ${t(['Role', 'Crew bonus'], NPC_ROLES.map(r => [r.name, cap(r.crew.label)]))}
 
 ### Keyboard and mouse: flying
 
-${t(['Key', 'Action'], [['Mouse', 'Steer (click to capture)'], ['W / S · X', 'Throttle · all stop'], ['A / D · Q / E', 'Yaw · roll'], ['Shift · C', 'Boost · cruise'], ['Left mouse / Space', 'Guns'], ['Right mouse / F', 'Missile'], ['T · R', 'Cycle targets · target ahead'], ['E', 'Dock, board, hail'], ['L', 'Land'], ['V', 'Camera'], ['M', 'Galaxy map']])}
+${t(['Key', 'Action'], [['Mouse', 'Aim; the ship follows (click to capture)'], ['W / S · X', 'Throttle · all stop'], ['Scroll wheel', 'Throttle'], ['A / D · Q / E', 'Yaw · roll'], ['Shift · C', 'Boost · cruise'], ['Left mouse / Space', 'Guns'], ['Right mouse / F', 'Missile'], ['T · R', 'Cycle targets · target ahead'], ['E', 'Dock, board, hail'], ['L', 'Land'], ['V', 'Camera: chase, cockpit, wide'], ['M', 'Galaxy map']])}
 ### Keyboard and mouse: on foot
 
-${t(['Key', 'Action'], [['WASD · Mouse', 'Move · look'], ['Left mouse', 'Fire'], ['R', 'Reload'], ['1 / 2', 'Switch weapon'], ['Space · Shift', 'Jump · sprint'], ['E', 'Talk, loot, mine, exit'], ['H', 'Medkit']])}
+${t(['Key', 'Action'], [['WASD · Mouse', 'Move · look'], ['Left mouse', 'Fire'], ['R', 'Reload'], ['1 / 2', 'Switch weapon'], ['Space · Shift', 'Jump · sprint'], ['E', 'Talk, loot, mine, exit'], ['H', 'Medkit'], ['V', 'First / third person']])}
 ### Menus
 
 ${t(['Key', 'Menu'], [['I / Tab', 'Inventory'], ['K', 'Skills'], ['J', 'Missions'], ['M', 'Galaxy map'], ['G', 'Field Guide'], ['Esc / P', 'Pause']])}
@@ -214,11 +228,13 @@ ${t(['Key', 'Menu'], [['I / Tab', 'Inventory'], ['K', 'Skills'], ['J', 'Missions
 - **Left thumb:** steer (flying) or move (on foot).
 - **Right thumb:** drag for throttle and roll (flying) or to look (on foot).
 - **Buttons:** FIRE, MSL, BOOST, USE, TARGET, CRUISE when flying; FIRE, JUMP, USE, RELOAD, SWAP, HEAL, SPRINT on foot.
-- **Top right:** MAP, GEAR, MENU.
+- **Top right:** VIEW (camera), MAP, GEAR, MENU.
 
 ### Gamepad (standard layout)
 
-${t(['Input', 'Flying', 'On foot'], [['Left stick', 'Pitch / yaw', 'Move'], ['Right stick', 'Roll / throttle', 'Look'], ['RT · LT', 'Guns · missile', 'Fire'], ['RB', 'Boost', '—'], ['A', 'Interact', 'Jump'], ['B', '—', 'Interact'], ['X', '—', 'Reload'], ['Y', 'Target', 'Swap weapon'], ['L3', 'Cruise', 'Sprint'], ['Back · Start', 'Inventory · pause', 'Inventory · pause']])}
+${t(['Input', 'Flying', 'On foot'], [['Left stick', 'Pitch / yaw', 'Move'], ['Right stick', 'Roll / throttle', 'Look'], ['RT · LT', 'Guns · missile', 'Fire'], ['RB', 'Boost', '—'], ['A', 'Interact', 'Jump'], ['B', 'Target ahead', 'Interact'], ['X', '—', 'Reload'], ['Y', 'Target', 'Swap weapon'], ['L3', 'Cruise', 'Sprint'], ['R3', 'Camera', 'First / third person'], ['D-pad down', '—', 'Medkit'], ['Back · Start', 'Inventory · pause', 'Inventory · pause']])}
+In menus, the D-pad or left stick moves the highlight, **A** selects, **B** goes back and **LB / RB** switch tabs. On the galaxy map the D-pad picks stars, the triggers zoom and **A** engages the jump drive.
+
 ## Graphics, saving and troubleshooting
 
 - Starward picks a **Low / Medium / High** preset for your device and adjusts render resolution to hold the frame rate. Change it under **Pause → Graphics**, which also has an FPS counter.

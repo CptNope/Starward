@@ -2,7 +2,7 @@
 import { TIERS, DAMAGE_TYPES, BIOMES, HULL_CLASSES, SKILLS, SKILL_TREES, SPECIALS, NPC_ROLES, IDEOLOGIES } from './data.js';
 import { COMMODITIES } from './gen/items.js';
 
-export const VERSION = '0.5.0';
+export const VERSION = '0.6.0';
 export const LINKS = {
   site: 'https://jeremyanderson.tech/',
   book: 'https://jeremyanderson.tech/book-a-call/',
@@ -58,7 +58,7 @@ export const GUIDE = [
     <ul><li><b>Grey-brown rocks</b> drop Raw Ore.</li><li><b>Glowing violet rocks</b> drop Void Crystals.</li><li><b>Gold rocks</b> are rare and drop Xeno Relics.</li></ul>
     <p>Fly through the cargo crate to collect it. Some rocks also give parts for the Workshop. The <b>Scavenger</b> skill increases the yield. Sell ore where it's in demand.</p>` },
   { id: 'capital', title: 'Capital ships', html: () => `
-    <p><b>Dreadnoughts</b> prowl dangerous systems (threat 4+), usually with escorts. They turn slowly, but six independent turrets track everything around them, and many carry missile racks.</p>
+    <p><b>Dreadnoughts</b> prowl dangerous systems (threat 4+), usually with escorts. They turn slowly, but six independent turrets track everything around them, and many carry missile racks. Each turret you see on the hull is a real gun: shots leave from the turrets, so the side facing you is the one shooting at you.</p>
     <p>Stay mobile, strip shields with ion or energy weapons, and bring wingmen. Their huge hull makes them hard to disable, but if you manage it you can board and claim one. Destroying one drops a pile of high-quality loot. A ⚠ marker shows where they are.</p>` },
   { id: 'wingmen', title: 'Wingmen', html: () => `
     <p>Any two crew members can <b>fly as wingmen</b>. Open <b>Character</b> (<kbd>I</kbd> → Character) and choose <b>Fly as wingman</b>. They launch in their own ships and hold formation beside you. Pilots fly interceptors, gunners and soldiers fly gunships, and everyone else flies fighters.</p>
@@ -71,6 +71,7 @@ export const GUIDE = [
     <p>Equipped gear can be upgraded and reforged in place. Unequip an item before salvaging it. You can turn a weapon you love into a Mythic.</p>` },
   { id: 'planets', title: 'Planets & exploration', html: () => `
     <p>Fly within range of a planet and press <kbd>L</kbd> to land. Every planet is generated from its seed: terrain, props, outposts, wildlife and loot.</p>
+    <p>Wildlife comes in many body plans: four-legged beasts, two-legged raptors, low armoured crawlers (some with a scorpion's stinger), spiders, drifting floaters and winged flyers. All of them bite at close range, so keep your distance. <b>Ruin Guardians</b> are stone golems with a glowing core.</p>
     ${table(['Biome', 'Hazard'], BIOMES.map(b => [`<span class="sw" style="background:${hex(b.ground[0])}"></span> ${b.name}`, b.hazard ? `${b.hazard} (drains shields)` : 'None']))}
     <ul><li><b>Faction outposts</b> have merchants, medics and engineers. Engineers and scientists can teach you a skill point.</li><li><b>Pirate camps</b> are hostile and guard caches.</li><li><b>Alien ruins</b> hold relic vaults guarded by creatures; relics sell for a fortune.</li><li><b>Deposits</b> of ore, void crystals and relics can be extracted into your cargo hold.</li><li><b>Locked caches</b> (red) need the Hacking skill.</li></ul>
     <p>Walk back to your ship and press <kbd>E</kbd> to launch.</p>` },
@@ -97,7 +98,9 @@ export const GUIDE = [
     <p>You can hold five contracts at once. Targets show as gold diamonds on the galaxy map and ◆ markers in-system. Mission boards refresh over time.</p>` },
   { id: 'ships', title: 'Ships & crew', html: () => `
     ${table(['Hull', 'Hull pts', 'Shield', 'Speed', 'Guns', 'Crew', 'Cargo', 'Price'], HULL_CLASSES.map(h => [`<b>${h.name}</b>`, h.hull, h.shield, h.speed, h.slots, h.crew, h.cargo, h.price.toLocaleString()]))}
+    <p>Every hull class has its own look. Scouts and interceptors are slim darts, gunships are flying slabs of armour with weapon pods, corvettes and frigates carry a raised bridge and turrets, freighters haul rows of cargo containers, and a Dreadnought is a three-tiered warship with a command tower. In the cockpit view you sit in your ship's own cockpit or on its bridge.</p>
     <p>Buy hulls at station shipyards (your old ship is traded in) or capture them by boarding.</p>
+    <p><b>Stations.</b> A station's shape tells you what it is before you read its name: a <b>Station</b> is a spinning wheel, a <b>Spire</b> a tall needle of stacked decks, a <b>Citadel</b> an armoured fortress with gun bastions, a <b>Dock</b> a shipyard with a hull on the slip, an <b>Exchange</b> a trade hub with cargo on its docking arms, an <b>Outpost</b> a cluster of pressurised cans and solar wings, and a <b>Haven</b> a base dug into an asteroid.</p>
     <p><b>Crew</b> give passive bonuses that grow with their level: ${NPC_ROLES.map(r => `${r.name.toLowerCase()} → ${r.crew.label}`).join(', ')}. Hire them in station bars or recruit them on planets and aboard friendly ships.</p>` },
   { id: 'controls', title: 'Controls', html: () => `
     <h4>Keyboard & mouse — flying</h4>${table(['Key', 'Action'], [['Mouse', 'Steer (click to capture)'], ['W / S · X · wheel', 'Throttle · all stop · throttle'], ['A / D · Q / E', 'Yaw · roll'], ['Shift · C', 'Boost · cruise'], ['LMB / Space · RMB / F', 'Guns · missile'], ['T · R', 'Cycle targets · target ahead'], ['E · L', 'Dock / board / hail · land'], ['V · M', 'Camera (chase, cockpit, wide) · galaxy map']])}

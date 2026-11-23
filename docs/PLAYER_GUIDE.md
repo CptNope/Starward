@@ -1,6 +1,6 @@
 # Starward Player Guide
 
-*Version 0.4.0. This guide is generated from the game's data (`npm run docs`). The same guide is in the game: press **G**.*
+*Version 0.6.0. This guide is generated from the game's data (`npm run docs`). The same guide is in the game: press **G**.*
 
 **[▶ Play Starward](https://cptnope.github.io/Starward/)** · Made by **[Jeremy Anderson Tech](https://jeremyanderson.tech/)**
 
@@ -16,16 +16,17 @@
 8. [Capital ships](#capital-ships)
 9. [Wingmen](#wingmen)
 10. [Workshop and crafting](#workshop-and-crafting)
-11. [Planets and exploration](#planets-and-exploration)
-12. [Loot and gear](#loot-and-gear)
-13. [Skills](#skills)
-14. [Factions and reputation](#factions-and-reputation)
-15. [Trading and economy](#trading-and-economy)
-16. [Contracts](#contracts)
-17. [Ships and crew](#ships-and-crew)
-18. [Controls](#controls)
-19. [Graphics, saving and troubleshooting](#graphics-saving-and-troubleshooting)
-20. [About](#about)
+11. [Stations](#stations)
+12. [Planets and exploration](#planets-and-exploration)
+13. [Loot and gear](#loot-and-gear)
+14. [Skills](#skills)
+15. [Factions and reputation](#factions-and-reputation)
+16. [Trading and economy](#trading-and-economy)
+17. [Contracts](#contracts)
+18. [Ships and crew](#ships-and-crew)
+19. [Controls](#controls)
+20. [Graphics, saving and troubleshooting](#graphics-saving-and-troubleshooting)
+21. [About](#about)
 
 ## Getting started
 
@@ -149,6 +150,8 @@ Fly through the cargo crate to collect it. Some rocks also give Workshop parts. 
 
 **Dreadnoughts** prowl dangerous systems (threat 4+), usually with escorts. They turn slowly, but six independent turrets track everything around them, and many carry missile racks. Stay mobile, strip shields with ion or energy weapons, and bring wingmen.
 
+Each turret you see on the hull is a real gun: shots leave from the turrets, so the side facing you is the one shooting at you.
+
 Their huge hull makes them hard to disable, but if you manage it you can board and claim one. Destroying one drops a pile of high-quality loot. A ⚠ marker shows where they are.
 
 ## Wingmen
@@ -171,6 +174,10 @@ Every station has a **Workshop** that runs on **parts**. You get parts by salvag
 
 Equipped gear can be upgraded and reforged in place. Both cost parts plus some credits, and the cost rises with tier and level.
 
+## Stations
+
+A station's shape tells you what it is before you read its name: a **Station** is a spinning wheel, a **Spire** a tall needle of stacked decks, a **Citadel** an armoured fortress with gun bastions, a **Dock** a shipyard with a hull on the slip, an **Exchange** a trade hub with cargo on its docking arms, an **Outpost** a cluster of pressurised cans and solar wings, and a **Haven** a base dug into an asteroid.
+
 ## Planets and exploration
 
 Fly within range of a planet and press **L** to land. Terrain, props, outposts, wildlife and loot are all generated from the planet's seed.
@@ -191,6 +198,8 @@ Fly within range of a planet and press **L** to land. Terrain, props, outposts, 
 - **Alien ruins** hold relic vaults guarded by creatures. Relics sell for a fortune.
 - **Deposits** of ore, void crystals and relics can be extracted into your cargo hold.
 - **Locked caches** (red) need the Hacking skill.
+
+Wildlife comes in many body plans: four-legged beasts, two-legged raptors, low armoured crawlers (some with a scorpion's stinger), spiders, drifting floaters and winged flyers. All of them bite at close range, so keep your distance. **Ruin Guardians** are stone golems with a glowing core.
 
 Walk back to your ship and press **E** to launch.
 
@@ -364,6 +373,8 @@ You can hold five contracts at once. Targets show as gold diamonds on the galaxy
 | **Freighter** | 700 | 180 | 140 | 0.7 | 1 | 3 | 80 | 52,000 cr |
 | **Frigate** | 1100 | 480 | 140 | 0.75 | 4 | 6 | 45 | 140,000 cr |
 | **Dreadnought** | 4200 | 1800 | 95 | 0.38 | 4 | 12 | 120 | 950,000 cr |
+
+Every hull class has its own look. Scouts and interceptors are slim darts, gunships are flying slabs of armour with weapon pods, corvettes and frigates carry a raised bridge and turrets, freighters haul rows of cargo containers, and a Dreadnought is a three-tiered warship with a command tower. In the cockpit view you sit in your ship's own cockpit or on its bridge.
 
 Buy hulls at station shipyards (your old ship is traded in for 45% of its price) or capture them by boarding. Dreadnoughts are rarely for sale.
 

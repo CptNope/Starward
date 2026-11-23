@@ -4,7 +4,9 @@ import { HULL_CLASSES, DAMAGE_TYPES, BIOMES, TIERS } from './data.js';
 import { getSystem, genShipDef, hostileToPlayer, factionsAtWar } from './gen/universe.js';
 import { genLoot, genItem } from './gen/items.js';
 import { shipStats, changeRep } from './player.js';
-import { buildShip, buildStation, glowSprite, planetTexture, nebulaTexture, starfield, disposeTree, mat, litMat } from './models.js';
+import { glowSprite, planetTexture, nebulaTexture, starfield, disposeTree, mat, litMat } from './models.js';
+import { buildShip } from './ships.js';
+import { buildStation, stationKind } from './stations.js';
 import { Q } from './quality.js';
 import { buildRocks, updateRocks, spawnWingmen, wingTarget, flyFormation, wingmanDown, spawnSignal, updateSignals } from './spacefeatures.js';
 import { Projectiles, fireWeapon } from './projectiles.js';
@@ -27,7 +29,7 @@ class Ship {
     const color = opts.ally ? 0x5be37d : def.faction !== null && def.faction !== undefined ? mode.U.factions[def.faction].color : (this.isPlayer ? 0x4dd6ff : 0xaaaaaa);
     const hc = HULL_CLASSES.find(h => h.id === def.cls);
     this.hc = hc; this.turrets = hc.turrets || 0;
-    this.mesh = buildShip(def.seed, hc.size * 2.2, this.isPlayer ? 0x4dd6ff : color);
+    this.mesh = buildShip(def.seed, hc.size * 2.2, this.isPlayer ? 0x4dd6ff : color, hc.id);
     this.pos = this.mesh.position; this.quat = this.mesh.quaternion;
     this.vel = new THREE.Vector3(); this.throttle = opts.throttle ?? 0.6;
     this.radius = this.mesh.userData.radius * 0.9;
@@ -134,9 +136,9 @@ export class SpaceMode {
     });
     // stations
     this.stations = sys.stations.map(s => {
-      const m = buildStation(s.seed, this.U.factions[s.faction].color);
+      const m = buildStation(s.seed, this.U.factions[s.faction].color, stationKind(s.name));
       m.position.fromArray(s.pos); this.scene.add(m);
-      return { data: s, mesh: m, pos: m.position, radius: m.userData.radius };
+      return { data: s, mesh: m, pos: m.position, radius: m.userData.radius, spin: { wheel: 0.05, spire: 0.03, hub: 0.02 }[m.userData.kind] || 0 };
     });
     // asteroid belts
     for (const b of sys.belts) {
@@ -357,6 +359,7 @@ export class SpaceMode {
       for (const e of eg) e.material.opacity = Math.min(1, k);
       this.collideBodies(s, dt);
     }
+    for (const st of this.stations) if (st.spin) st.mesh.rotation.y += st.spin * dt; // habitat rings turn slowly
     this.proj.update(dt, this.rocks.length ? this.ships.concat(this.rocks) : this.ships);
     this.ships = this.ships.filter(s => s.alive || s.isPlayer);
     if (this.rocks.length && this.rocks.some(r => !r.alive)) this.rocks = this.rocks.filter(r => r.alive);
@@ -629,7 +632,9 @@ export class SpaceMode {
         s.cool[idx] = 1 / wi.weapon.rate * (1.4 + Math.random() * 0.8);
         const tgt = (k % 2 && this.ships.length > 2) ? this.nearestEnemyOf(s) || t : t;
         if (tgt.pos.distanceTo(s.pos) > wi.weapon.range * 1.15) continue;
-        const o = _v2.set((Math.random() - 0.5) * R * 0.8, R * 0.25, (Math.random() - 0.5) * R * 1.4).applyQuaternion(s.quat).add(s.pos).clone();
+        // fire from the hull's own turrets when the model has them
+        const tp = s.mesh.userData.turrets, mount = tp && tp.length ? tp[(k + i) % tp.length] : null;
+        const o = (mount ? _v2.copy(mount) : _v2.set((Math.random() - 0.5) * R * 0.8, R * 0.25, (Math.random() - 0.5) * R * 1.4)).applyQuaternion(s.quat).add(s.pos).clone();
         const aim = this.leadPoint({ pos: o, vel: s.vel }, tgt, wi.weapon.speed).sub(o).normalize();
         fireWeapon(this.proj, wi, o, aim, s, s.st.weaponMods, s.vel);
       }
@@ -684,7 +689,7 @@ export class SpaceMode {
   updateCamera(dt) {
     const p = this.player, cam = this.camera;
     const size = p.hc.size * 2.2;
-    const off = [new THREE.Vector3(0, 7 * size, 26 * size), new THREE.Vector3(0, 2.2 * size, 4 * size), new THREE.Vector3(0, 13 * size, 52 * size)][this.viewMode] || new THREE.Vector3(0, 7 * size, 26 * size);
+    const off = [new THREE.Vector3(0, 7 * size, 26 * size), (p.mesh.userData.cockpit || new THREE.Vector3(0, 2.2 * size, 4 * size)).clone(), new THREE.Vector3(0, 13 * size, 52 * size)][this.viewMode] || new THREE.Vector3(0, 7 * size, 26 * size);
     const want = off.applyQuaternion(p.quat).add(p.pos);
     const k = 1 - Math.exp(-(this.viewMode === 1 ? 30 : 8) * dt);
     if (!p.alive) { cam.lookAt(p.pos); return; }

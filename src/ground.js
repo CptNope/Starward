@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { RNG, Noise, clamp, hashInts } from './rng.js';
 import { BIOMES } from './data.js';
 import { genNPC, hostileToPlayer } from './gen/universe.js';
-import { buildShip, mat, glowSprite, starfield, litMat } from './models.js';
+import { mat, glowSprite, starfield, litMat } from './models.js';
+import { buildShip } from './ships.js';
 import { Q } from './quality.js';
 import { HULL_CLASSES } from './data.js';
 import { hashStr } from './rng.js';
@@ -114,7 +115,8 @@ export function makeGroundEnv(game, sys, planet) {
     // landing pad + ship
     const pad = new THREE.Mesh(new THREE.CylinderGeometry(14, 15, 0.6, 16), mat(0x8a9098, { metal: 0.15, rough: 0.7 })); pad.position.y = 0.3; scene.add(pad);
     const hc = HULL_CLASSES.find(h => h.id === P.ship.cls);
-    const ship = buildShip(hashStr(P.ship.name + P.ship.cls), hc.size * 1.4, 0x4dd6ff); ship.position.set(0, 3.2, 0); ship.rotation.y = 0.6; scene.add(ship);
+    const ship = buildShip(hashStr(P.ship.name + P.ship.cls), hc.size * 1.4, 0x4dd6ff, hc.id); ship.position.set(0, 3.2, 0); ship.rotation.y = 0.6; scene.add(ship);
+    for (const e of ship.userData.engines) e.material.opacity = 0.12; // parked: engines idling
     boxes.push({ minX: -5, maxX: 5, minZ: -5, maxZ: 5, top: 4 });
     // outposts
     for (const s of sites) buildSite(scene, s, env, r, U, P, sys, height, boxes, game);

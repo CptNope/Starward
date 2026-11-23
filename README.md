@@ -36,6 +36,10 @@ Made by **[Jeremy Anderson Tech](https://jeremyanderson.tech/)**
 | ![Planet outpost](docs/images/planet.jpg) | ![Boarding a ship](docs/images/boarding.jpg) |
 | ![Station mission board](docs/images/station.jpg) | ![Galaxy map](docs/images/map.jpg) |
 
+Every ship, station, creature and character is built in code. Here they all are as of v0.6:
+
+![Ships, stations, creatures and characters](docs/images/models.jpg)
+
 ## Quick start
 
 1. Open **[cptnope.github.io/Starward](https://cptnope.github.io/Starward/)** and choose **New game**. Pick a name, a species and a universe seed, or keep the random one.

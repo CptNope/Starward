@@ -3,6 +3,7 @@ import { RNG, Noise } from './rng.js';
 import { BIOMES } from './data.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Q } from './quality.js';
+import { PROFILES, loft, wing } from './geo.js';
 
 const texCache = {};
 export function glowTexture(inner = 'rgba(255,255,255,1)', key = 'glow') {
@@ -69,80 +70,6 @@ export function glowPoints(positions, color, size, opacity = 0.8) {
   return new THREE.Points(geo, m);
 }
 
-// ---------- Ships (nose points to -Z) ----------
-export function buildShip(seed, size = 1, color = 0x88aaff) {
-  const r = new RNG(seed);
-  const g = new THREE.Group();
-  const hullCol = new THREE.Color().setHSL(r.next(), r.range(0.05, 0.25), r.range(0.35, 0.6)).getHex();
-  const hull = mat(hullCol, { metal: 0.6, rough: 0.4 });
-  const trim = mat(color, { metal: 0.3, rough: 0.5, emissive: color, ei: 0.25 });
-  const dark = mat(0x222831, { metal: 0.7, rough: 0.6 });
-  const L = r.range(5, 9) * size, W = r.range(1.2, 2.2) * size, H = r.range(0.9, 1.6) * size;
-  const style = r.int(0, 2);
-  // fuselage
-  let body;
-  if (style === 0) body = new THREE.Mesh(new THREE.BoxGeometry(W, H, L), hull);
-  else if (style === 1) { body = new THREE.Mesh(new THREE.CylinderGeometry(W * 0.5, W * 0.7, L, r.int(5, 8)), hull); body.rotation.x = Math.PI / 2; }
-  else { body = new THREE.Mesh(new THREE.OctahedronGeometry(1, 0), hull); body.scale.set(W * 0.8, H * 0.7, L * 0.6); }
-  g.add(body);
-  const nose = new THREE.Mesh(new THREE.ConeGeometry(W * 0.5, L * r.range(0.3, 0.6), r.int(4, 8)), hull);
-  nose.rotation.x = -Math.PI / 2; nose.position.z = -L * 0.62; g.add(nose);
-  const cockpit = new THREE.Mesh(new THREE.SphereGeometry(W * 0.35, 8, 6), mat(0x7fd8ff, { metal: 0.9, rough: 0.1, emissive: 0x1a5a7a, ei: 0.8 }));
-  cockpit.scale.set(1, 0.6, 1.8); cockpit.position.set(0, H * 0.45, -L * 0.2); g.add(cockpit);
-  // wings
-  const ws = r.range(1.5, 3.5) * size, wd = r.range(1.5, 3.5) * size, sweep = r.range(-0.6, 0.4);
-  const wingY = r.range(-0.3, 0.2) * H;
-  for (const sx of [-1, 1]) {
-    const wing = new THREE.Mesh(new THREE.BoxGeometry(ws, 0.18 * size, wd), r.chance(0.5) ? hull : dark);
-    wing.position.set(sx * (W * 0.5 + ws * 0.45), wingY, L * 0.1); wing.rotation.y = sx * sweep; wing.rotation.z = sx * r.range(-0.25, 0.25);
-    g.add(wing);
-    const stripe = new THREE.Mesh(new THREE.BoxGeometry(ws * 0.9, 0.2 * size, 0.25 * size), trim);
-    stripe.position.copy(wing.position); stripe.position.z += wd * 0.35; stripe.rotation.copy(wing.rotation); g.add(stripe);
-    if (r.chance(0.5)) {
-      const fin = new THREE.Mesh(new THREE.BoxGeometry(0.15 * size, r.range(0.8, 2) * size, wd * 0.6), hull);
-      fin.position.set(sx * (W * 0.5 + ws * 0.85), wingY + 0.5 * size, L * 0.2); g.add(fin);
-    }
-  }
-  if (r.chance(0.6)) { const tf = new THREE.Mesh(new THREE.BoxGeometry(0.2 * size, r.range(1, 2.4) * size, L * 0.3), trim); tf.position.set(0, H * 0.8, L * 0.3); g.add(tf); }
-  // engines
-  const nEng = r.pick([1, 2, 2, 3, 4]);
-  const flares = [];
-  for (let i = 0; i < nEng; i++) {
-    const ex = nEng === 1 ? 0 : (i / (nEng - 1) - 0.5) * W * 1.6;
-    const eng = new THREE.Mesh(new THREE.CylinderGeometry(0.35 * size, 0.45 * size, 1.6 * size, 8), dark);
-    eng.rotation.x = Math.PI / 2; eng.position.set(ex, 0, L * 0.5 + 0.4 * size); g.add(eng);
-    flares.push(new THREE.Vector3(ex, 0, L * 0.5 + 1.1 * size));
-  }
-  bake(g);
-  const fl = glowPoints(flares, color, 1.5 * size, 0.75); g.add(fl);
-  g.userData.engines = [fl];
-  g.userData.radius = Math.max(L * 0.6, W + ws);
-  g.userData.muzzles = [new THREE.Vector3(-W * 0.6, wingY, -L * 0.4), new THREE.Vector3(W * 0.6, wingY, -L * 0.4)];
-  return g;
-}
-
-export function buildStation(seed, color) {
-  const r = new RNG(seed);
-  const g = new THREE.Group();
-  const hull = mat(0x9aa3ad, { metal: 0.7, rough: 0.35 });
-  const trim = mat(color, { emissive: color, ei: 0.6 });
-  const R = r.range(70, 120);
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(R, r.range(8, 14), 8, 32), hull); ring.rotation.x = Math.PI / 2; g.add(ring);
-  const core = new THREE.Mesh(new THREE.CylinderGeometry(18, 18, R * 1.6, 12), hull); g.add(core);
-  for (let i = 0; i < 4; i++) {
-    const sp = new THREE.Mesh(new THREE.BoxGeometry(R * 2, 4, 6), hull); sp.rotation.y = i * Math.PI / 4; g.add(sp);
-  }
-  for (const y of [-1, 1]) {
-    const cap = new THREE.Mesh(new THREE.SphereGeometry(26, 12, 8), hull); cap.position.y = y * R * 0.8; g.add(cap);
-    const lt = glowSprite(color, 60); lt.position.y = y * (R * 0.8 + 26); g.add(lt);
-  }
-  const band = new THREE.Mesh(new THREE.TorusGeometry(R, 2, 4, 48), trim); band.rotation.x = Math.PI / 2; band.position.y = 10; g.add(band);
-  if (r.chance(0.6)) { const ring2 = new THREE.Mesh(new THREE.TorusGeometry(R * 0.55, 6, 6, 24), hull); ring2.position.y = R * 0.5; ring2.rotation.x = Math.PI / 2; g.add(ring2); }
-  bake(g);
-  g.userData.radius = R + 20;
-  return g;
-}
-
 // ---------- Characters ----------
 // Rigged like a skeleton made of plain Object3Ds: each joint is a Group whose origin is the pivot
 // (shoulder, elbow, hip, knee), children hang along -Y, and the gun is parented to the right hand
@@ -155,54 +82,123 @@ const _taper = (geo, bx, bz) => { // narrow the bottom of a box (chest V-shape, 
 const _box = (w, h, d, m, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); return o; };
 const _joint = (parent, x, y, z) => { const j = new THREE.Group(); j.position.set(x, y, z); parent.add(j); return j; };
 
+// What each job wears. helm: full | pilot | cap | hood | none; armor 0-2; pack: support | radio | jet | ammo | none.
+const KITS = {
+  soldier: { helm: 'full', armor: 2, pack: 'support', pauld: 1.25, holster: true },
+  gunner: { helm: 'full', armor: 2, pack: 'ammo', pauld: 1.1 },
+  pilot: { helm: 'pilot', armor: 1, pack: 'jet', pauld: 0.85, holster: true },
+  engineer: { helm: 'cap', armor: 1, pack: 'radio', pauld: 0.75 },
+  scientist: { helm: 'none', armor: 0, pack: 'none', pauld: 0, coat: true },
+  medic: { helm: 'cap', armor: 0, pack: 'support', pauld: 0.7, white: true },
+  merchant: { helm: 'none', armor: 0, pack: 'none', pauld: 0, coat: true },
+  smuggler: { helm: 'hood', armor: 1, pack: 'none', pauld: 1, oneSide: true, coat: true, holster: true },
+  captain: { helm: 'pilot', armor: 2, pack: 'jet', pauld: 1, holster: true },
+};
+const HEAD_BOX = { round: [0.28, 0.28, 0.28], dome: [0.36, 0.45, 0.36], flat: [0.3, 0.15, 0.225], long: [0.22, 0.4, 0.22], crest: [0.3, 0.35, 0.3] }; // half extents
+const HAIR = [0x1c1612, 0x3a2716, 0x6b4a2a, 0xb08a4a, 0x8a8f96, 0x7a2f22, 0x2f5f7a];
+// loft standing up: sections are [y, width, depth, z = 0]
+// (the Low preset uses four-sided limbs instead of eight-sided ones)
+const _vl = (secs, prof = 'oct') => loft(secs.map(([y, w, d, z = 0]) => [y, w, d, -z]), PROFILES[prof === 'oct' && Q.tier === 0 ? 'box' : prof]).rotateX(-Math.PI / 2);
+const _m = (geo, m, x = 0, y = 0, z = 0) => { if (x || y || z) geo.translate(x, y, z); return new THREE.Mesh(geo, m); };
+
 export function buildCharacter(sp, seed, outfit = 0x445566, opts = {}) {
   const r = new RNG(seed);
   const g = new THREE.Group();
   const jointed = opts.jointed ?? Q.tier > 0; // Low preset folds elbows/knees into one segment each
   const skin = new THREE.Color().setHSL(sp.skin[0], sp.skin[1], sp.skin[2] * r.range(0.85, 1.1)).getHex();
+  const role = KITS[opts.role] ? opts.role : r.pick(['soldier', 'pilot', 'engineer', 'merchant', 'smuggler', 'scientist']);
+  const kit = KITS[role];
   const oc = new THREE.Color(outfit);
   const sm = mat(skin, { metal: 0.05, rough: 0.8 });
-  const om = mat(outfit, { metal: 0.3, rough: 0.6 });
-  const am = mat(oc.clone().lerp(new THREE.Color(0xd8e0ea), 0.28).getHex(), { metal: 0.55, rough: 0.4 }); // armor plates
+  const om = mat(outfit, { metal: 0.3, rough: 0.6 });                                                           // suit
+  const um = mat(oc.clone().lerp(new THREE.Color(0x10141a), 0.55).getHex(), { metal: 0.15, rough: 0.8 });       // under-suit at the joints
+  const am = mat(oc.clone().lerp(new THREE.Color(kit.white ? 0xf2f5f8 : 0xd8e0ea), kit.white ? 0.75 : 0.3).getHex(), { metal: 0.55, rough: 0.4 }); // armour plates
+  const tm = mat(oc.clone().lerp(new THREE.Color(0xffffff), 0.25).multiplyScalar(1.5).getHex(), { metal: 0.2, rough: 0.5 }); // bright trim
   const dm = mat(0x1c2026, { metal: 0.5, rough: 0.7 }); // gloves, boots, belt, pack
   const accent = new THREE.Color().setHSL(r.next(), 0.85, 0.55).getHex();
   const lm = mat(0x111111, { emissive: accent, ei: 1.6 }); // suit lights
+  const vm = mat(0x111111, { emissive: kit.white ? 0x7dffb0 : 0x7fd8ff, ei: 1.2 }); // visor glass
   const h = sp.height, w = sp.width;
-  const ud = { height: 2.3 * h, radius: 0.5 * w, jointed };
+  const ud = { height: 2.3 * h, radius: 0.5 * w, jointed, role };
   const segs = []; // [group, Set of child joints to skip when baking]
+  const variant = r.int(0, 2);
+  const fine = Q.tier > 0; // small plates and pouches are skipped on the Low preset
 
   // --- hips (root) and legs ---
   const hips = _joint(g, 0, 0.95 * h, 0); ud.hips = hips;
-  hips.add(_box(0.62 * w, 0.22 * h, 0.36 * w, dm, 0, -0.02 * h));
-  hips.add(_box(0.12 * w, 0.1 * h, 0.05 * w, am, 0, 0, -0.19 * w)); // buckle
+  hips.add(_m(_vl([[-0.15 * h, 0.46 * w, 0.3 * w], [-0.02 * h, 0.62 * w, 0.37 * w], [0.1 * h, 0.56 * w, 0.33 * w]]), um));
+  hips.add(_box(0.64 * w, 0.07 * h, 0.39 * w, dm, 0, 0.03 * h)); // belt
+  hips.add(_box(0.12 * w, 0.09 * h, 0.05 * w, am, 0, 0.03 * h, -0.2 * w)); // buckle
+  if (kit.armor && fine) for (const sx of [-1, 1]) hips.add(_box(0.13 * w, 0.11 * h, 0.1 * w, dm, sx * 0.23 * w, -0.01 * h, -0.2 * w)); // pouches
+  if (kit.pack === 'none') { hips.add(_box(0.16 * w, 0.2 * h, 0.28 * w, dm, -0.4 * w, -0.08 * h, 0.02 * w)); hips.add(_box(0.17 * w, 0.03 * h, 0.1 * w, tm, -0.4 * w, -0.02 * h, 0.02 * w)); } // satchel
+  if (kit.coat) { // coat tails: a back panel and two side panels
+    hips.add(_m(_vl([[-0.5 * h, 0.72 * w, 0.05 * w, 0.31 * w], [0.02 * h, 0.6 * w, 0.05 * w, 0.19 * w]], 'box'), om));
+    for (const sx of [-1, 1]) hips.add(_m(_vl([[-0.46 * h, 0.05 * w, 0.36 * w, 0.12 * w], [0.02 * h, 0.05 * w, 0.3 * w, 0.03 * w]], 'box'), om, sx * 0.35 * w));
+    hips.add(_m(_vl([[-0.5 * h, 0.74 * w, 0.055 * w, 0.31 * w], [-0.44 * h, 0.73 * w, 0.055 * w, 0.3 * w]], 'box'), tm)); // hem
+  }
   const leg = (side) => {
     const hip = _joint(hips, side * 0.18 * w, -0.06 * h, 0);
     const thighL = 0.42 * h, shinL = 0.4 * h;
-    hip.add(new THREE.Mesh(_taper(new THREE.BoxGeometry(0.25 * w, thighL, 0.27 * w).translate(0, -thighL / 2, 0), 0.8, 0.85), om));
+    hip.add(_m(_vl([[-thighL, 0.2 * w, 0.22 * w], [-thighL * 0.45, 0.25 * w, 0.27 * w], [0, 0.26 * w, 0.28 * w]]), kit.armor ? um : om));
+    if (kit.armor && fine) hip.add(_m(_vl([[-thighL * 0.82, 0.19 * w, 0.06 * w, -0.125 * w], [-thighL * 0.2, 0.24 * w, 0.07 * w, -0.14 * w]], 'slab'), kit.armor > 1 ? am : om)); // thigh plate
+    if (kit.holster && side > 0) { hip.add(_box(0.07 * w, 0.2 * h, 0.15 * w, dm, 0.16 * w, -thighL * 0.45, 0)); hip.add(_box(0.3 * w, 0.03 * h, 0.3 * w, dm, 0, -thighL * 0.3, 0)); }
     const knee = jointed ? _joint(hip, 0, -thighL, 0) : hip;
     const ky = jointed ? 0 : -thighL;
-    knee.add(_box(0.2 * w, 0.12 * h, 0.08 * w, am, 0, ky - 0.02 * h, -0.13 * w)); // knee pad
-    knee.add(new THREE.Mesh(_taper(new THREE.BoxGeometry(0.2 * w, shinL, 0.22 * w).translate(0, ky - shinL / 2, 0), 0.85, 0.85), om));
-    knee.add(_box(0.24 * w, 0.14 * h, 0.4 * w, dm, 0, ky - shinL - 0.03 * h, -0.07 * w)); // boot
+    knee.add(_box(0.2 * w, 0.11 * h, 0.09 * w, am, 0, ky - 0.01 * h, -0.13 * w)); // knee pad
+    knee.add(_m(_vl([[-shinL, 0.17 * w, 0.19 * w], [-shinL * 0.4, 0.22 * w, 0.24 * w, 0.01 * w], [0, 0.2 * w, 0.22 * w]]), om, 0, ky, 0));
+    if (kit.armor && fine) knee.add(_m(_vl([[-shinL * 0.92, 0.15 * w, 0.05 * w, -0.1 * w], [-shinL * 0.2, 0.2 * w, 0.06 * w, -0.125 * w]], 'slab'), am, 0, ky, 0)); // shin guard
+    knee.add(_m(loft([[-0.3 * w, 0.19 * w, 0.08 * h], [-0.12 * w, 0.25 * w, 0.14 * h, 0.03 * h], [0.14 * w, 0.23 * w, 0.17 * h, 0.045 * h]], PROFILES.slab), dm, 0, ky - shinL - 0.07 * h, 0)); // boot
     segs.push([hip, new Set(jointed ? [knee] : [])]); if (jointed) segs.push([knee, new Set()]);
     return { hip, knee: jointed ? knee : null };
   };
   const LL = leg(-1), LR = leg(1);
   ud.hipL = LL.hip; ud.kneeL = LL.knee; ud.hipR = LR.hip; ud.kneeR = LR.knee;
 
-  // --- spine: abdomen, chest, pack, head ---
+  // --- spine: abdomen, chest, armour, pack, head ---
   const spine = _joint(hips, 0, 0.1 * h, 0); ud.spine = spine;
-  spine.add(_box(0.54 * w, 0.3 * h, 0.32 * w, om, 0, 0.14 * h));
-  const chestH = 0.52 * h;
-  const chest = new THREE.Mesh(_taper(new THREE.BoxGeometry(0.86 * w, chestH, 0.42 * w), 0.72, 0.85), om); chest.position.y = 0.52 * h; spine.add(chest);
-  spine.add(new THREE.Mesh(_taper(new THREE.BoxGeometry(0.6 * w, 0.36 * h, 0.06 * w), 0.7, 1).translate(0, 0.58 * h, -0.22 * w), am)); // chest plate
-  spine.add(_box(0.05 * w, 0.05 * h, 0.03 * w, lm, 0.16 * w, 0.66 * h, -0.255 * w)); // status light
-  spine.add(_box(0.52 * w, 0.46 * h, 0.2 * w, dm, 0, 0.52 * h, 0.3 * w)); // life-support pack
-  spine.add(_box(0.06 * w, 0.32 * h, 0.03 * w, lm, -0.12 * w, 0.52 * h, 0.41 * w));
-  spine.add(_box(0.06 * w, 0.32 * h, 0.03 * w, lm, 0.12 * w, 0.52 * h, 0.41 * w));
-  for (const s of [-1, 1]) spine.add(new THREE.Mesh(new THREE.BoxGeometry(0.3 * w, 0.12 * h, 0.4 * w).rotateZ(-s * 0.18).translate(s * 0.47 * w, 0.8 * h, 0), am)); // shoulder pads
-  spine.add(new THREE.Mesh(new THREE.CylinderGeometry(0.1 * w, 0.12 * w, 0.14 * h, 6).translate(0, 0.84 * h, 0), sm)); // neck
-  const head = _joint(spine, 0, 1.0 * h, 0); ud.head = head; // baked into the spine segment
+  spine.add(_m(_vl([[0, 0.52 * w, 0.31 * w], [0.16 * h, 0.5 * w, 0.3 * w], [0.3 * h, 0.6 * w, 0.33 * w]]), um));
+  spine.add(_m(_vl([[0.26 * h, 0.6 * w, 0.34 * w], [0.5 * h, 0.84 * w, 0.42 * w], [0.72 * h, 0.88 * w, 0.42 * w], [0.8 * h, 0.6 * w, 0.34 * w]]), om));
+  if (kit.armor) {
+    spine.add(_m(_vl([[0.36 * h, 0.5 * w, 0.1 * w, -0.17 * w], [0.56 * h, 0.7 * w, 0.12 * w, -0.2 * w], [0.76 * h, 0.66 * w, 0.1 * w, -0.19 * w]], 'slab'), am)); // breastplate
+    if (fine) spine.add(_m(_vl([[0.4 * h, 0.5 * w, 0.08 * w, 0.2 * w], [0.74 * h, 0.66 * w, 0.08 * w, 0.2 * w]], 'slab'), am)); // back plate
+    if (kit.armor > 1 && fine) for (const y of [0.2, 0.29]) spine.add(_box(0.38 * w, 0.07 * h, 0.05 * w, am, 0, y * h, -0.165 * w)); // abdominal plates
+  } else spine.add(_box(0.05 * w, 0.5 * h, 0.03 * w, dm, 0, 0.5 * h, -0.215 * w)); // jacket seam
+  spine.add(_box(0.09 * w, 0.26 * h, 0.03 * w, tm, -0.2 * w, 0.6 * h, kit.armor ? -0.262 * w : -0.215 * w)); // faction stripe
+  spine.add(_box(0.05 * w, 0.05 * h, 0.03 * w, lm, 0.18 * w, 0.68 * h, kit.armor ? -0.262 * w : -0.215 * w)); // status light
+  spine.add(_m(new THREE.CylinderGeometry(0.17 * w, 0.21 * w, 0.1 * h, 8), kit.armor ? am : om, 0, 0.83 * h, 0)); // collar
+  const pz = 0.21 * w + (kit.armor ? 0.04 * w : 0);
+  if (kit.pack === 'support') {
+    spine.add(_box(0.5 * w, 0.44 * h, 0.2 * w, kit.white ? am : dm, 0, 0.52 * h, pz + 0.1 * w));
+    for (const sx of [-1, 1]) spine.add(_box(0.06 * w, 0.3 * h, 0.03 * w, lm, sx * 0.12 * w, 0.52 * h, pz + 0.205 * w));
+    spine.add(_box(0.3 * w, 0.06 * h, 0.22 * w, am, 0, 0.77 * h, pz + 0.1 * w));
+  } else if (kit.pack === 'radio') {
+    spine.add(_box(0.44 * w, 0.36 * h, 0.18 * w, dm, 0, 0.54 * h, pz + 0.09 * w));
+    spine.add(_m(new THREE.CylinderGeometry(0.012, 0.012, 0.75 * h, 4), dm, 0.17 * w, 1.05 * h, pz + 0.12 * w)); spine.add(_box(0.04, 0.04, 0.04, lm, 0.17 * w, 1.43 * h, pz + 0.12 * w)); // antenna
+    spine.add(_box(0.3 * w, 0.05 * h, 0.03 * w, lm, 0, 0.6 * h, pz + 0.185 * w)); spine.add(_box(0.14 * w, 0.14 * h, 0.12 * w, am, -0.12 * w, 0.42 * h, pz + 0.2 * w));
+  } else if (kit.pack === 'jet') {
+    spine.add(_box(0.4 * w, 0.2 * h, 0.14 * w, dm, 0, 0.6 * h, pz + 0.07 * w));
+    for (const sx of [-1, 1]) {
+      spine.add(_m(new THREE.CylinderGeometry(0.1 * w, 0.12 * w, 0.44 * h, 7), am, sx * 0.17 * w, 0.52 * h, pz + 0.15 * w));
+      spine.add(_m(new THREE.CylinderGeometry(0.12 * w, 0.09 * w, 0.06 * h, 7), dm, sx * 0.17 * w, 0.28 * h, pz + 0.15 * w));
+      spine.add(_m(new THREE.CylinderGeometry(0.075 * w, 0.075 * w, 0.02 * h, 7), lm, sx * 0.17 * w, 0.245 * h, pz + 0.15 * w)); // nozzle glow
+      spine.add(_m(new THREE.SphereGeometry(0.1 * w, 7, 4, 0, Math.PI * 2, 0, Math.PI / 2), am, sx * 0.17 * w, 0.74 * h, pz + 0.15 * w));
+    }
+  } else if (kit.pack === 'ammo') {
+    spine.add(_box(0.56 * w, 0.26 * h, 0.2 * w, dm, 0, 0.44 * h, pz + 0.1 * w));
+    spine.add(_m(new THREE.CylinderGeometry(0.11 * w, 0.11 * w, 0.5 * w, 8).rotateZ(Math.PI / 2), am, 0, 0.64 * h, pz + 0.1 * w)); // ammo drum
+    spine.add(_box(0.08 * w, 0.06 * h, 0.03 * w, lm, 0, 0.44 * h, pz + 0.205 * w));
+  }
+  if (kit.pauld) for (const s of kit.oneSide ? [-1] : [-1, 1]) { // pauldrons
+    const k = kit.pauld * (opts.boss ? 1.25 : 1), x = s * 0.47 * w, y = 0.8 * h;
+    if (variant === 1) spine.add(_m(new THREE.SphereGeometry(0.2 * w * k, 7, 4, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.8, 1.15), am, x, y - 0.04 * h, 0));
+    else {
+      spine.add(_m(new THREE.BoxGeometry(0.3 * w * k, 0.1 * h, 0.4 * w * k).rotateZ(-s * 0.22), am, x, y, 0));
+      if (variant === 2) spine.add(_m(new THREE.BoxGeometry(0.22 * w * k, 0.08 * h, 0.32 * w * k).rotateZ(-s * 0.3), tm, x + s * 0.02 * w, y + 0.06 * h, 0));
+    }
+    if (opts.boss) spine.add(_m(new THREE.ConeGeometry(0.06 * w, 0.26 * h, 4).rotateZ(-s * 0.5), am, x + s * 0.12 * w, y + 0.14 * h, 0));
+  }
+  spine.add(_m(new THREE.CylinderGeometry(0.1 * w, 0.12 * w, 0.14 * h, 6), sm, 0, 0.9 * h, 0)); // neck
+  const head = _joint(spine, 0, 1.03 * h, 0); ud.head = head; // baked into the spine segment
   let hm;
   if (sp.head === 'long') hm = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.35, 3, 8), sm);
   else if (sp.head === 'flat') hm = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.3, 0.45), sm);
@@ -210,14 +206,48 @@ export function buildCharacter(sp, seed, outfit = 0x445566, opts = {}) {
   else if (sp.head === 'dome') { hm = new THREE.Mesh(new THREE.SphereGeometry(0.36, 10, 8), sm); hm.scale.y = 1.25; }
   else hm = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 8), sm);
   head.add(hm);
+  // headgear: helmets only fit rounded heads; other species wear a brow band and ear pieces
+  const [hx, hy, hz] = HEAD_BOX[sp.head] || HEAD_BOX.round;
+  const roundish = sp.head === 'round' || sp.head === 'dome' || !HEAD_BOX[sp.head];
+  let helm = kit.helm; if (helm !== 'none' && !roundish) helm = 'band';
+  const visorDown = helm === 'full' || (helm === 'pilot' && r.chance(0.5));
+  const shell = (sx, sy, sz, m, zo = 0.07, yo = 0.03) => head.add(_m(new THREE.SphereGeometry(1, fine ? 10 : 7, fine ? 7 : 5).scale(hx * sx, hy * sy, hz * sz), m, 0, yo, zo));
+  if (helm === 'full') {
+    shell(1.2, 1.16, 1.22, am, 0, 0.01);
+    head.add(_box(hx * 1.5, hy * 0.3, 0.08, vm, 0, 0.04, -hz * 1.17)); head.add(_box(hx * 0.3, hy * 0.5, 0.08, vm, 0, -hy * 0.3, -hz * 1.13)); // T visor
+    for (const s of [-1, 1]) head.add(_m(new THREE.CylinderGeometry(hx * 0.22, hx * 0.22, 0.06, 7).rotateZ(Math.PI / 2), um, s * hx * 1.18, -hy * 0.1, hz * 0.2));
+    head.add(_m(new THREE.SphereGeometry(1, 8, 5).scale(hx * 0.95, hy * 0.6, hz * 0.6), dm, 0, -hy * 0.5, -hz * 0.74)); // faceplate
+    for (const s of [-1, 1]) head.add(_m(new THREE.CylinderGeometry(hx * 0.16, hx * 0.16, 0.1, 6).rotateX(Math.PI / 2), um, s * hx * 0.42, -hy * 0.62, -hz * 1.12)); // filters
+  } else if (helm === 'pilot') {
+    shell(1.16, 1.14, 1.16, am);
+    head.add(_box(hx * 1.7, hy * 0.36, 0.07, vm, 0, visorDown ? hy * 0.14 : hy * 0.66, visorDown ? -hz * 1.0 : -hz * 0.84));
+    head.add(_box(0.05, hy * 1.2, hz * 1.9, tm, 0, hy * 0.62, 0.07)); // stripe over the crown
+    for (const s of [-1, 1]) head.add(_m(new THREE.CylinderGeometry(hx * 0.2, hx * 0.2, 0.05, 7).rotateZ(Math.PI / 2), um, s * hx * 1.14, 0, 0.1));
+  } else if (helm === 'cap') {
+    head.add(_m(new THREE.SphereGeometry(1, 9, 4, 0, Math.PI * 2, 0, Math.PI / 2).scale(hx * 1.14, hy * 0.8, hz * 1.14), kit.white ? am : tm, 0, hy * 0.36, 0));
+    head.add(_box(hx * 1.7, 0.035, hz * 0.9, kit.white ? am : tm, 0, hy * 0.38, -hz * 1.1)); // brim
+    head.add(_box(hx * 1.5, hy * 0.24, 0.05, dm, 0, hy * 0.62, -hz * 1.0)); for (const s of [-1, 1]) head.add(_box(hx * 0.5, hy * 0.2, 0.03, vm, s * hx * 0.38, hy * 0.62, -hz * 1.04)); // goggles
+  } else if (helm === 'hood') {
+    shell(1.2, 1.2, 1.3, um, 0.1, 0.04);
+    head.add(_m(new THREE.TorusGeometry(hx * 0.95, hx * 0.36, 5, 8).rotateX(Math.PI / 2), tm, 0, -hy * 1.05, 0.02)); // scarf
+  } else if (helm === 'band') {
+    head.add(_box(hx * 2.1, 0.07, 0.06, am, 0, hy * 0.5, -hz * 0.98)); head.add(_box(hx * 1.6, hy * 0.9, 0.06, am, 0, 0, hz * 1.02));
+    for (const s of [-1, 1]) head.add(_m(new THREE.CylinderGeometry(0.09, 0.09, 0.06, 7).rotateZ(Math.PI / 2), dm, s * hx * 1.04, 0, 0));
+    head.add(_box(0.05, 0.05, 0.05, lm, hx * 1.04, 0.12, 0));
+  } else if (sp.id === 0 && variant !== 2) { // human hair
+    const hair = mat(r.pick(HAIR), { metal: 0, rough: 0.9 });
+    shell(1.08, 1.06, 1.1, hair, 0.06, 0.05);
+    if (variant === 1) head.add(_m(new THREE.SphereGeometry(hx * 0.42, 6, 5), hair, 0, hy * 0.5, hz * 1.1)); // bun
+  }
+  if (opts.boss && (helm === 'full' || helm === 'pilot')) head.add(_m(wing({ span: hy * 0.75, cr: hz * 1.6, ct: hz * 0.5, sweep: hz * 0.5, t: 0.05 }).rotateZ(Math.PI / 2), lm, 0, hy * 0.95, -hz * 0.1)); // crest
   const front = { long: 0.21, flat: 0.22, crest: 0.15, dome: 0.34 }[sp.head] ?? 0.26; // eyes sit on the face, not inside it
   const em = mat(0x111111, { emissive: sp.id === 0 ? 0x000000 : new THREE.Color().setHSL(r.next(), 1, 0.5).getHex(), ei: 1.5 });
-  for (let i = 0; i < sp.eyes; i++) {
+  if (!visorDown) for (let i = 0; i < sp.eyes; i++) {
     const e = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 4), em);
     e.position.set((i - (sp.eyes - 1) / 2) * 0.13, 0.05 + (sp.eyes > 2 && i % 2 ? 0.08 : 0), -front); head.add(e);
   }
   for (let i = 0; i < sp.horns; i++) {
-    const hn = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.35, 5), mat(sp.color2)); hn.position.set(sp.horns === 1 ? 0 : (i ? 0.18 : -0.18), 0.3, 0); hn.rotation.z = sp.horns === 1 ? 0 : (i ? -0.4 : 0.4); head.add(hn);
+    const hn = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.35, 5), mat(sp.color2)); hn.position.set(sp.horns === 1 ? 0 : (i ? 0.18 : -0.18), hy + 0.06, 0); hn.rotation.z = sp.horns === 1 ? 0 : (i ? -0.4 : 0.4); head.add(hn);
   }
   if (sp.tail) { const tg = _joint(hips, 0, 0, 0.2 * w); const tl = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.95, 5).translate(0, -0.47, 0), sm); tg.rotation.x = -1.0; tg.add(tl); ud.tail = tg; segs.push([tg, new Set()]); }
 
@@ -226,11 +256,14 @@ export function buildCharacter(sp, seed, outfit = 0x445566, opts = {}) {
     const sh = _joint(spine, side * 0.5 * w, 0.72 * h, 0);
     sh.rotation.order = 'YXZ'; // raise the arm first (X), then turn it toward the gun (Y)
     const upL = 0.36 * h, foL = 0.32 * h;
-    sh.add(new THREE.Mesh(_taper(new THREE.BoxGeometry(0.19 * w, upL, 0.2 * w).translate(0, -upL / 2, 0), 0.82, 0.85), om));
+    sh.add(_m(_vl([[-upL, 0.16 * w, 0.17 * w], [-upL * 0.4, 0.2 * w, 0.21 * w], [0.02 * h, 0.19 * w, 0.2 * w]]), kit.armor ? um : om));
+    if (kit.armor > 1 && fine) sh.add(_m(_vl([[-upL * 0.75, 0.06 * w, 0.17 * w, 0], [-upL * 0.15, 0.07 * w, 0.2 * w, 0]], 'slab'), am, side * 0.09 * w)); // upper-arm plate
     const el = jointed ? _joint(sh, 0, -upL, 0) : sh;
     const ey = jointed ? 0 : -upL;
-    el.add(new THREE.Mesh(_taper(new THREE.BoxGeometry(0.17 * w, foL, 0.18 * w).translate(0, ey - foL / 2, 0), 0.8, 0.8), om));
-    el.add(_box(0.19 * w, 0.1 * h, 0.2 * w, am, 0, ey - foL * 0.55)); // bracer
+    if (kit.armor && fine) el.add(_box(0.2 * w, 0.08 * h, 0.2 * w, am, 0, ey + 0.005 * h, 0.01 * w)); // elbow guard
+    el.add(_m(_vl([[-foL, 0.14 * w, 0.15 * w], [-foL * 0.35, 0.18 * w, 0.19 * w], [0, 0.16 * w, 0.17 * w]]), om, 0, ey, 0));
+    el.add(_m(_vl([[-foL * 0.88, 0.165 * w, 0.175 * w], [-foL * 0.42, 0.2 * w, 0.21 * w]]), am, 0, ey, 0)); // bracer
+    if (side < 0) el.add(_box(0.03 * w, 0.08 * h, 0.1 * w, lm, -0.1 * w, ey - foL * 0.62, 0)); // wrist display
     const hand = _joint(el, 0, ey - foL - 0.05 * h, 0);
     hand.add(_box(0.14 * w, 0.13 * h, 0.15 * w, dm));
     segs.push([sh, new Set(jointed ? [el] : [])]); // hand and gun bake into the forearm: one draw per segment
@@ -289,34 +322,6 @@ export function animateCharacter(ch, dt, { walkT = 0, speed = 0, aim = 0, pitch 
 export function animateWalk(ch, t, speed) { animateCharacter(ch, 1 / 60, { walkT: t, speed }); }
 const _mz = new THREE.Vector3();
 export function muzzleWorld(ch, out = _mz) { const m = ch.userData.muzzle; if (!m) return null; ch.updateMatrixWorld(true); return m.getWorldPosition(out); }
-
-export function buildCreature(seed, level = 1) {
-  const r = new RNG(seed);
-  const g = new THREE.Group();
-  const c1 = new THREE.Color().setHSL(r.next(), r.range(0.4, 0.9), r.range(0.3, 0.55)).getHex();
-  const c2 = new THREE.Color().setHSL(r.next(), 0.8, 0.5).getHex();
-  const m1 = mat(c1, { metal: 0.1, rough: 0.8 }), m2 = mat(c2, { emissive: c2, ei: 0.6 });
-  const s = r.range(0.7, 1.8) * (1 + level * 0.02);
-  const body = new THREE.Mesh(new THREE.SphereGeometry(1, 8, 6), m1); body.scale.set(r.range(0.7, 1.2) * s, r.range(0.5, 0.9) * s, r.range(1, 1.8) * s);
-  const legs = r.pick([2, 4, 4, 6]); const legLen = r.range(0.6, 1.6) * s;
-  body.position.y = legLen + 0.3 * s; g.add(body);
-  const head = new THREE.Mesh(r.chance(0.5) ? new THREE.SphereGeometry(0.5 * s, 7, 5) : new THREE.ConeGeometry(0.45 * s, 1 * s, 6), m1);
-  head.position.set(0, body.position.y + 0.3 * s, -body.scale.z * 0.95); head.rotation.x = -Math.PI / 2; g.add(head);
-  for (let i = 0; i < r.int(1, 3); i++) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.1 * s, 5, 4), m2); e.position.set((i - 1) * 0.2 * s, head.position.y + 0.15 * s, head.position.z - 0.35 * s); g.add(e); }
-  const legMeshes = [];
-  for (let i = 0; i < legs; i++) {
-    const geo = new THREE.CylinderGeometry(0.1 * s, 0.07 * s, legLen, 5); geo.translate(0, -legLen / 2, 0);
-    const lg = new THREE.Mesh(geo, m1);
-    const row = Math.floor(i / 2), side = i % 2 ? 1 : -1;
-    lg.position.set(side * body.scale.x * 0.7, body.position.y, (row / Math.max(1, legs / 2 - 1) - 0.5) * body.scale.z * 1.2);
-    g.add(lg); legMeshes.push(lg);
-  }
-  if (r.chance(0.5)) for (let i = 0; i < r.int(2, 5); i++) { const sp = new THREE.Mesh(new THREE.ConeGeometry(0.12 * s, 0.7 * s, 4), m2); sp.position.set(0, body.position.y + body.scale.y * 0.9, (i / 4 - 0.5) * body.scale.z); g.add(sp); }
-  const ud = { legs: legMeshes, height: body.position.y + body.scale.y, radius: Math.max(body.scale.x, body.scale.z) };
-  bake(g, new Set(legMeshes));
-  g.userData = ud;
-  return g;
-}
 
 // ---------- Time-sliced texture generation ----------
 // Big procedural textures are filled a few rows per frame so loading never freezes the game.
