@@ -475,6 +475,7 @@ In menus, the D-pad or left stick moves the highlight, **A** selects, **B** goes
 
 Starward is made by **Jeremy Anderson** of **[Jeremy Anderson Tech](https://jeremyanderson.tech/)**, a software architect and WordPress engineer in Shrewsbury, Massachusetts, who builds websites, plugins, web apps and browser games.
 
+- Starward on my site: **[how it is built and what is new](https://jeremyanderson.tech/project/starward-threejs-space-sandbox-rpg/)**
 - Website: **[jeremyanderson.tech](https://jeremyanderson.tech/)**
 - Want something like this built? **[Book a call](https://jeremyanderson.tech/book-a-call/)**
 - Play: **[cptnope.github.io/Starward](https://cptnope.github.io/Starward/)**

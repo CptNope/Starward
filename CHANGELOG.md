@@ -16,6 +16,9 @@ Changes made from feedback posted by Rob Rastaban in the Indie Game Players & De
 - **Bar talk was unreadable.** What someone says at a station bar now appears in the bar panel under their name and stays there, instead of in a message behind the blurred menu.
 - **Messages behind menus.** Any message that appears while a menu is open now sits above the menu at the bottom of the screen. Long messages stay up longer.
 
+### Added
+- The in-game About screen and the Player Guide link to the [Starward page on jeremyanderson.tech](https://jeremyanderson.tech/project/starward-threejs-space-sandbox-rpg/).
+
 ### Developer notes
 - `tests/input-test.py` lands the way a player does on each device (keys, gamepad, touch) and has 146 checks, up from 126.
 

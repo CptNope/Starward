@@ -121,15 +121,15 @@ export function aboutHTML(g) {
   return `<div class="about">
     <div class="ab-logo">STARWARD</div><div class="muted">Version ${VERSION} · an open sandbox among procedural stars</div>
     <p>Starward is a three.js space sandbox RPG: fly and fight, land on planets, board and capture ships, trade, join or betray factions, and build a captain over time. Every galaxy, faction, species, planet, NPC, ship and weapon is generated from a seed${seed ? `. Yours is <b class="gold">${String(seed).replace(/[<>&"]/g, '')}</b>. Share it so friends can explore the same galaxy.` : '.'}</p>
-    <h3>Made by Jeremy Anderson Tech</h3>
-    <p>Jeremy Anderson is a software architect and WordPress engineer in Shrewsbury, Massachusetts. He builds websites, plugins, web apps and browser games like this one.</p>
+    <h3>Made by ${a(LINKS.project, 'Jeremy Anderson Tech')}</h3>
+    <p>Jeremy Anderson is a software architect and WordPress engineer in Shrewsbury, Massachusetts. He builds websites, plugins, web apps and browser games like this one. The ${a(LINKS.project, 'Starward page on jeremyanderson.tech')} has the story of how it is built and what is new.</p>
     <div class="links">
-      ${a(LINKS.site, '<b>jeremyanderson.tech</b><small>Website, projects and more games</small>')}
+      ${a(LINKS.project, '<b>Starward on jeremyanderson.tech</b><small>How it is built and what is new</small>')}
+      ${a(LINKS.site, '<b>More from Jeremy Anderson Tech</b><small>Website, projects and more games</small>')}
       ${a(LINKS.book, '<b>Book a call</b><small>Want something like this built?</small>')}
       ${a(LINKS.play, '<b>Play Starward</b><small>cptnope.github.io/Starward</small>')}
       ${a(LINKS.itch, '<b>Starward on itch.io</b><small>Play, rate or donate</small>')}
       ${a(LINKS.devlog, '<b>Devlog</b><small>Every update, explained</small>')}
-      ${a(LINKS.project, '<b>Project page</b><small>How Starward is built</small>')}
       ${a(LINKS.repo, '<b>Source code</b><small>github.com/CptNope/Starward</small>')}
       ${a(LINKS.issues, '<b>Report a bug</b><small>Open a GitHub issue</small>')}
       ${a(LINKS.docs, '<b>Player guide</b><small>The full guide on GitHub</small>')}
