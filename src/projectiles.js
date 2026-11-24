@@ -13,8 +13,8 @@ const _m4 = new THREE.Matrix4(), _s = new THREE.Vector3(), _col = new THREE.Colo
 // Shared projectile + effects system for space and on-foot modes.
 // Bolts and missiles are two InstancedMeshes; every flash/explosion is one Points draw.
 export class Projectiles {
-  constructor(scene, { scale = 1, canHit, onHit, collideWorld, max = 700 } = {}) {
-    this.scene = scene; this.scale = scale; this.canHit = canHit; this.onHit = onHit; this.collideWorld = collideWorld;
+  constructor(scene, { scale = 1, canHit, onHit, collideWorld, grace, max = 700 } = {}) {
+    this.scene = scene; this.scale = scale; this.canHit = canHit; this.onHit = onHit; this.collideWorld = collideWorld; this.grace = grace;
     this.list = []; this.pool = []; this.fx = []; this.lines = [];
     this.colors = {};
     for (const [k, d] of Object.entries(DAMAGE_TYPES)) this.colors[k] = new THREE.Color(d.color).multiplyScalar(2.2);
@@ -74,7 +74,7 @@ export class Projectiles {
         for (const t of targets) {
           if (!t.alive || t === p.owner || (p.hitSet && p.hitSet.has(t))) continue;
           if (this.canHit && !this.canHit(p.owner, t)) continue;
-          if (segSphere(p.prev, p.pos, t.pos, t.radius + (p.missile ? 2 * this.scale : 0))) {
+          if (segSphere(p.prev, p.pos, t.pos, t.radius + (p.missile ? 2 * this.scale : 0) + (this.grace ? this.grace(p, t) : 0))) {
             this.impact(p, t, targets);
             if (p.pierce && p.hitSet.size < p.pierce) { p.hitSet.add(t); continue; }
             dead = true; break;

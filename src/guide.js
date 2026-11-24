@@ -2,7 +2,7 @@
 import { TIERS, DAMAGE_TYPES, BIOMES, HULL_CLASSES, SKILLS, SKILL_TREES, SPECIALS, NPC_ROLES, IDEOLOGIES } from './data.js';
 import { COMMODITIES } from './gen/items.js';
 
-export const VERSION = '0.6.0';
+export const VERSION = '0.7.0';
 export const LINKS = {
   site: 'https://jeremyanderson.tech/',
   book: 'https://jeremyanderson.tech/book-a-call/',
@@ -25,12 +25,12 @@ export const GUIDE = [
     <ol class="steps"><li><b>Dock</b> at the station you start next to (fly close, press <kbd>E</kbd> / <kbd>USE</kbd>). Look at the <b>Mission Board</b> and the <b>Gear Market</b>.</li>
     <li><b>Spend your skill points</b> (<kbd>K</kbd>). Ship Weapons, Shield Harmonics and Flight Training are strong first picks.</li>
     <li><b>Take a nearby contract</b>. Surveys and courier runs are safe; bounties pay more.</li>
-    <li><b>Open the galaxy map</b> (<kbd>M</kbd>), pick a star inside the dashed circle and engage the jump drive.</li>
-    <li><b>Land</b> on planets (<kbd>L</kbd>) to mine ore, open caches and find relics in alien ruins.</li></ol>
+    <li><b>Open the galaxy map</b> (<kbd>M</kbd>), pick a star inside the dashed circle and engage the jump drive. With hostiles close the drive needs 4 seconds to spool up, so you can run from a fight if you survive the countdown.</li>
+    <li><b>Land</b> on planets: fly close, press <kbd>L</kbd> and pick a spot on the survey map. Mine ore, open caches and find relics in alien ruins.</li></ol>
     <p class="muted">Danger and loot level rise the farther you travel from your starting system. Unclaimed space and pirate territory are the most dangerous — and the most rewarding.</p>` },
   { id: 'flight', title: 'Flying & combat', html: () => `
     <p>Steer with the mouse: with the mouse captured, move the <b>gold ring</b> where you want to go and the ship turns to follow it (prefer the old cursor-as-joystick steering? switch it under <b>Pause → Controls</b>). Set throttle with <kbd>W</kbd>/<kbd>S</kbd>, roll with <kbd>Q</kbd>/<kbd>E</kbd>. <b>Boost</b> (<kbd>Shift</kbd>) burns energy; <b>cruise</b> (<kbd>C</kbd>) crosses a system fast but can't be used near hostiles and drops out when you're hit.</p>
-    <p>Lock a target with <kbd>T</kbd> (or <kbd>R</kbd> for whatever is ahead). The <b>blue reticle</b> shows exactly where your guns will hit. Guns swivel toward your aim, and when your aim is on the <b>gold lead diamond</b> they lock onto it, so put the ring on the diamond and fire. On a gamepad or touch, the ship also nudges itself toward a locked target's diamond. Missiles (<kbd>RMB</kbd>/<kbd>F</kbd>) home on your locked target; restock them at stations.</p>
+    <p>The nearest hostile is locked for you when nothing else is. Cycle targets with <kbd>T</kbd> (or <kbd>R</kbd> for whatever is ahead). The <b>blue reticle</b> shows exactly where your guns will hit. Guns swivel toward your aim, and when your aim is on the <b>gold lead diamond</b> they lock onto it, so put the ring on the diamond and fire. On a gamepad or touch, the ship also nudges itself toward a locked target's diamond. Missiles (<kbd>RMB</kbd>/<kbd>F</kbd>) home on your locked target. The rack reloads itself, about 90 seconds from empty to full, and stations restock it at once.</p>
     <p>Shields regenerate after a few seconds without taking damage. Hull doesn't — repair it at a station, or learn <b>Damage Control</b>.</p>
     <p>If your ship is destroyed you wake at the last station you docked at, minus some credits and your cargo.</p>` },
   { id: 'damage', title: 'Damage types', html: () => `
@@ -70,8 +70,8 @@ export const GUIDE = [
     <ul><li><b>Upgrade</b> an item one tier: stronger base stats, stronger bonuses, plus one new bonus. Weapons gain special effects at Legendary and Mythic.</li><li><b>Reforge</b> an item to re-roll which bonuses it has and how strong they are.</li></ul>
     <p>Equipped gear can be upgraded and reforged in place. Unequip an item before salvaging it. You can turn a weapon you love into a Mythic.</p>` },
   { id: 'planets', title: 'Planets & exploration', html: () => `
-    <p>Fly within range of a planet and press <kbd>L</kbd> to land. Every planet is generated from its seed: terrain, props, outposts, wildlife and loot.</p>
-    <p>Wildlife comes in many body plans: four-legged beasts, two-legged raptors, low armoured crawlers (some with a scorpion's stinger), spiders, drifting floaters and winged flyers. All of them bite at close range, so keep your distance. <b>Ruin Guardians</b> are stone golems with a glowing core.</p>
+    <p>Fly close to a planet (the prompt tells you how far you have to go) and press <kbd>L</kbd>. A <b>survey map</b> of the landing zone opens, with outposts, pirate camps and ruins marked. Click anywhere on it to choose where to set down, or pick a site from the list, then your ship dives into the atmosphere and you watch it settle onto the pad. Every planet is generated from its seed: terrain, props, outposts, wildlife and loot.</p>
+    <p>Wildlife comes in many body plans: four-legged beasts, two-legged raptors, low armoured crawlers (some with a scorpion's stinger), spiders, drifting floaters and winged flyers. All of them bite at close range, so keep your distance. Beasts and crawlers soak up fire, raptors and flyers are fast, and hurting one animal brings the rest of its pack. A pack of three or more is led by a bigger, tougher <b>alpha</b> that is worth more XP and always drops loot. <b>Ruin Guardians</b> are stone golems with a glowing core, and the toughest things on any planet.</p>
     ${table(['Biome', 'Hazard'], BIOMES.map(b => [`<span class="sw" style="background:${hex(b.ground[0])}"></span> ${b.name}`, b.hazard ? `${b.hazard} (drains shields)` : 'None']))}
     <ul><li><b>Faction outposts</b> have merchants, medics and engineers. Engineers and scientists can teach you a skill point.</li><li><b>Pirate camps</b> are hostile and guard caches.</li><li><b>Alien ruins</b> hold relic vaults guarded by creatures; relics sell for a fortune.</li><li><b>Deposits</b> of ore, void crystals and relics can be extracted into your cargo hold.</li><li><b>Locked caches</b> (red) need the Hacking skill.</li></ul>
     <p>Walk back to your ship and press <kbd>E</kbd> to launch.</p>` },

@@ -14,9 +14,15 @@ import { Projectiles, fireWeapon } from './projectiles.js';
 const FWD = new THREE.Vector3(0, 0, -1), UP = new THREE.Vector3(0, 1, 0);
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _v4 = new THREE.Vector3(), _q = new THREE.Quaternion(), _e = new THREE.Euler();
 const NPC_DMG = 0.55;
+// Enemy pilots fly at this fraction of their hull's top speed.
+const NPC_SPEED = 0.8;
+// Seconds for an empty missile rack to reload itself.
+const MISSILE_RELOAD = 90;
+// How close to a planet's surface you have to fly before you can land, and how long the descent takes.
+const LAND_RANGE = 420, DESCENT_TIME = 2.2;
 // Dogfight tuning. GIMBAL: how far (radians) guns can swivel off the nose toward your aim.
 // SNAP: how close the aim must be to a target's lead marker for the guns to lock onto it.
-const GIMBAL = 0.2, SNAP_MOUSE = 0.1, SNAP_PAD = 0.26;
+const GIMBAL = 0.2, SNAP_MOUSE = 0.15, SNAP_PAD = 0.26;
 // Mouse aim: radians of aim movement per pixel, and the furthest the aim may lead the nose.
 const AIM_SENS = 0.0021, AIM_MAX = 0.55;
 
@@ -42,7 +48,7 @@ class Ship {
       const lo = def.loadout;
       this.st = {
         hullMax: hc.hull * lm * 0.75 + (lo.plating?.stats.hullMax || 0), shieldMax: hc.shield * lm * 0.6 + (lo.shield?.stats.shieldMax || 0),
-        shieldRegen: 6 + (lo.shield?.stats.shieldRegen || 0) * 0.6, armor: lo.plating?.stats.armor || 0, speed: hc.speed * 0.9, turn: hc.turn * 0.75,
+        shieldRegen: 6 + (lo.shield?.stats.shieldRegen || 0) * 0.6, armor: lo.plating?.stats.armor || 0, speed: hc.speed * NPC_SPEED, turn: hc.turn * 0.75,
         weapons: lo.weapons, missile: lo.missile || null, regenDelay: 4, weaponMods: { dmg: NPC_DMG, vel: 1 }, boost: 1.6,
       };
       this.hull = this.st.hullMax; this.shield = this.st.shieldMax; this.energy = 100;
@@ -160,6 +166,8 @@ export class SpaceMode {
     this.proj = new Projectiles(this.scene, {
       scale: 6, max: 500,
       canHit: (o, t) => this.canHit(o, t),
+      // your own gunfire gets a slightly generous hit box against ships, so near misses on a small fighter count
+      grace: (p, t) => p.owner && p.owner.isPlayer && !p.missile && t.hc ? clamp(t.radius * 0.5, 4, 8) : 0,
       onHit: (t, dmg, dtype, p, crit) => { t.hit(dmg, dtype, p); if (p.leech && p.owner && p.owner.alive) p.owner.hull = Math.min(p.owner.st.hullMax, p.owner.hull + dmg * p.leech); if (p.owner && p.owner.isPlayer) this.game.ui.hitMarker(crit); },
     });
     // player
@@ -340,7 +348,8 @@ export class SpaceMode {
   update(dt) {
     this.time += dt;
     const g = this.game, inp = g.input, p = this.player, ui = g.ui;
-    if (p.alive) this.controlPlayer(dt, inp);
+    if (this.descent) this.updateDescent(dt); else if (p.alive) this.controlPlayer(dt, inp);
+    if (this.jumpSpool) { const j = this.jumpSpool; j.t -= dt; if (!p.alive) this.jumpSpool = null; else if (j.t <= 0) { this.jumpSpool = null; g.doJump(j.sysId); } }
     for (const s of this.ships) if (!s.isPlayer && s.alive) this.updateAI(s, dt);
     // physics + regen
     for (const s of this.ships) {
@@ -354,6 +363,11 @@ export class SpaceMode {
       if (s.isPlayer && s.st.hullRegen) s.hull = Math.min(s.st.hullMax, s.hull + s.st.hullRegen * dt);
       for (let i = 0; i < s.cool.length; i++) s.cool[i] -= dt;
       s.missileCool -= dt;
+      // Your missile rack reloads itself: a full rack takes about 90 seconds whatever its size.
+      if (s.isPlayer && s.st.missile && s.missiles < s.st.missileCap) {
+        s.misLoad = (s.misLoad || 0) + dt; const per = MISSILE_RELOAD / Math.max(1, s.st.missileCap);
+        if (s.misLoad >= per) { s.misLoad = 0; s.missiles++; }
+      } else if (s.isPlayer) s.misLoad = 0;
       // engine glow
       const eg = s.mesh.userData.engines; const k = s.disabled ? 0.05 : 0.5 + s.throttle * (s.boosting ? 1.8 : 1);
       for (const e of eg) e.material.opacity = Math.min(1, k);
@@ -445,6 +459,9 @@ export class SpaceMode {
     if (inp.pressed('KeyT') || inp.gpPressed(3)) this.cycleTarget();
     if (inp.pressed('KeyR') || inp.gpPressed(1)) this.targetAhead();
     if (this.target && (!this.target.alive)) this.target = null;
+    // With nothing locked, lock the nearest hostile so the lead marker and gun tracking are always there in a fight.
+    this.autoT = (this.autoT || 0) - dt;
+    if (!this.target && this.autoT <= 0) { this.autoT = 0.5; this.target = this.nearestHostile(Math.min(p.st.radar, 2400)); }
     // weapons
     const firing = (inp.mouse(0) && !g.ui.freeCursor) || inp.down('Space') || (gp && gp.rt > 0.4);
     if (firing && this.cruise < 0.1) this.firePlayerGuns();
@@ -453,7 +470,7 @@ export class SpaceMode {
     // interact
     this.interactTarget = this.findInteract();
     if (this.interactTarget && (inp.pressed('KeyE') || inp.gpPressed(0))) this.doInteract(this.interactTarget);
-    if (inp.pressed('KeyL')) { const pl = this.nearPlanet(); if (pl) this.game.land(this, pl.data); else g.ui.toast('No planet in landing range', '#ff7a5a'); }
+    if (inp.pressed('KeyL')) { const pl = this.nearPlanet(); if (pl) this.beginLanding(pl); else g.ui.toast('No planet in landing range — fly closer', '#ff7a5a'); }
     if (inp.pressed('KeyV') || inp.gpPressed(11)) this.cycleView();
   }
   cycleView() {
@@ -501,7 +518,7 @@ export class SpaceMode {
   firePlayerMissile() {
     const p = this.player, m = p.st.missile;
     if (!m) return this.game.ui.toast('No missile launcher equipped', '#ff7a5a');
-    if (p.missiles <= 0) return this.game.ui.toast('Out of missiles — restock at a station', '#ff7a5a');
+    if (p.missiles <= 0) return this.game.ui.toast('Out of missiles — the rack is reloading', '#ff7a5a');
     if (p.missileCool > 0) return;
     p.missiles--; p.missileCool = 1 / m.weapon.rate;
     fireWeapon(this.proj, m, p.pos.clone().addScaledVector(p.forward(), 12), p.forward(), p, p.st.weaponMods, p.vel, this.target);
@@ -510,6 +527,11 @@ export class SpaceMode {
     const out = t.pos.clone();
     for (let i = 0; i < 2; i++) { const tt = out.distanceTo(from.pos) / speed; out.copy(t.pos).addScaledVector(_v.copy(t.vel).sub(from.vel), tt); }
     return out;
+  }
+  nearestHostile(d) {
+    let best = null, bd = d;
+    for (const s of this.ships) { if (s.isPlayer || s.ally || !s.alive || s.disabled || !this.isHostileToPlayer(s)) continue; const x = s.pos.distanceTo(this.player.pos); if (x < bd) { bd = x; best = s; } }
+    return best;
   }
   enemiesNear(d) { return this.ships.some(s => !s.isPlayer && s.alive && this.isHostileToPlayer(s) && s.pos.distanceTo(this.player.pos) < d); }
   cycleTarget() {
@@ -524,7 +546,23 @@ export class SpaceMode {
     for (const s of this.ships) { if (s.isPlayer || s.ally || !s.alive) continue; const a = _v.copy(s.pos).sub(this.player.pos).normalize().angleTo(f); if (a < ba) { ba = a; best = s; } }
     if (best) this.target = best;
   }
-  nearPlanet() { return this.planets.find(pl => pl.pos.distanceTo(this.player.pos) < pl.radius + 900); }
+  nearPlanet() { return this.planets.find(pl => pl.pos.distanceTo(this.player.pos) < pl.radius + LAND_RANGE); }
+  // Landing: pick a site on the survey map, then the ship dives into the atmosphere on its own.
+  beginLanding(pl) { this.jumpSpool = null; this.game.ui.landing(this, pl); }
+  startDescent(pl, site) {
+    this.descent = { pl, site, t: 0 }; this.cruiseOn = false; this.cruise = 0;
+    this.game.ui.toast(`Beginning descent to ${pl.data.name}`, '#9fd8ff');
+  }
+  updateDescent(dt) {
+    const d = this.descent, p = this.player, g = this.game;
+    if (!p.alive) { this.descent = null; g.ui.entryFx(false); return; }
+    d.t += dt;
+    const down = _v.copy(d.pl.pos).sub(p.pos).normalize();
+    p.steerToward(down, dt, 1.6); p.throttle = 1; p.boosting = false;
+    p.vel.lerp(_v2.copy(down).multiplyScalar(Math.max(140, p.st.speed)), 1 - Math.exp(-2.5 * dt));
+    if (d.t > DESCENT_TIME - 0.9 && !d.fx) { d.fx = true; g.ui.entryFx(true); g.audio.warp && g.audio.warp(); }
+    if (d.t >= DESCENT_TIME) { this.descent = null; p.vel.set(0, 0, 0); g.land(this, d.pl.data, d.site); }
+  }
   findInteract() {
     const p = this.player;
     for (const st of this.stations) if (st.pos.distanceTo(p.pos) < st.radius + 260) return { type: 'dock', st };
@@ -538,12 +576,15 @@ export class SpaceMode {
       }
     }
     const pl = this.nearPlanet(); if (pl) return { type: 'land', pl };
+    const far = this.planets.find(q => q.pos.distanceTo(p.pos) < q.radius + 2600); if (far) return { type: 'approach', pl: far };
     return null;
   }
   doInteract(it) {
     const g = this.game;
+    if (it.type === 'approach') return;
+    if (it.type === 'dock' || it.type === 'board') this.jumpSpool = null;
     if (it.type === 'dock') g.dock(this, it.st.data);
-    else if (it.type === 'land') g.land(this, it.pl.data);
+    else if (it.type === 'land') this.beginLanding(it.pl);
     else if (it.type === 'board') {
       if (this.player.vel.length() > 120) return g.ui.toast('Match speed to board (slow down)', '#ff7a5a');
       g.board(this, it.ship, false);
@@ -583,11 +624,13 @@ export class SpaceMode {
       const w = s.st.weapons[0];
       const lead = this.leadPoint(s, t, w ? w.weapon.speed : 1200);
       const toT = lead.sub(s.pos); const dist = toT.length(); toT.normalize();
-      if (s.evade > 0) { s.evade -= dt; s.steerToward(s.evadeDir, dt); s.throttle = 1; s.boosting = true; }
+      // Fighters ease off the throttle once they're in gun range and break away without boost,
+      // so a dogfight is a turning fight you can follow instead of a string of high-speed passes.
+      if (s.evade > 0) { s.evade -= dt; s.steerToward(s.evadeDir, dt); s.throttle = 0.8; s.boosting = false; }
       else {
         const ang = s.steerToward(toT, dt);
-        s.boosting = dist > 1500; s.throttle = dist < 250 ? 0.4 : 1;
-        if (dist < 180 && Math.random() < dt * 2) { s.evade = 1.2 + Math.random(); s.evadeDir = new THREE.Vector3(Math.random() - .5, Math.random() - .5, Math.random() - .5).normalize(); }
+        s.boosting = dist > 2200; s.throttle = dist < 300 ? 0.4 : dist < 1000 ? 0.65 : 1;
+        if (dist < 180 && Math.random() < dt * 1.2) { s.evade = 0.9 + Math.random() * 0.7; s.evadeDir = new THREE.Vector3(Math.random() - .5, Math.random() - .5, Math.random() - .5).normalize(); }
         if (ang < 0.12 && dist < (w ? w.weapon.range * 1.1 : 1200)) {
           s.st.weapons.forEach((wi, i) => {
             if ((s.cool[i] || 0) > 0) return;
@@ -707,12 +750,12 @@ export class SpaceMode {
   updateHud() {
     const ui = this.game.ui, p = this.player;
     const it = this.interactTarget;
-    const prompts = { dock: (x) => `E · Dock at ${x.st.data.name}`, board: (x) => `E · ${x.ship.derelict ? 'Explore' : 'Board'} ${x.ship.name}`, hail: (x) => `E · Hail ${x.ship.name}`, land: (x) => `L · Land on ${x.pl.data.name}`, scan: () => 'E · Scan anomaly' };
-    ui.prompt(this.scan ? `Scanning anomaly… ${Math.min(99, Math.round(this.scan.t / 5 * 100))}%` : it ? prompts[it.type](it) : null);
+    const prompts = { dock: (x) => `E · Dock at ${x.st.data.name}`, board: (x) => `E · ${x.ship.derelict ? 'Explore' : 'Board'} ${x.ship.name}`, hail: (x) => `E · Hail ${x.ship.name}`, land: (x) => `L · Land on ${x.pl.data.name}`, approach: (x) => `Fly closer to land on ${x.pl.data.name} · ${Math.max(0, Math.round((x.pl.pos.distanceTo(p.pos) - x.pl.radius - LAND_RANGE) / 10) * 10)} m`, scan: () => 'E · Scan anomaly' };
+    ui.prompt(this.descent ? `Descending to ${this.descent.pl.data.name}…` : this.jumpSpool ? `Jump drive spooling… ${Math.ceil(this.jumpSpool.t)}` : this.scan ? `Scanning anomaly… ${Math.min(99, Math.round(this.scan.t / 5 * 100))}%` : it ? prompts[it.type](it) : null);
     ui.spaceHud({
       hull: p.hull / p.st.hullMax, shield: p.shield / p.st.shieldMax, energy: p.energy / p.st.energyMax,
       hullTxt: `${Math.ceil(p.hull)}/${Math.round(p.st.hullMax)}`, shieldTxt: `${Math.ceil(p.shield)}/${Math.round(p.st.shieldMax)}`,
-      speed: Math.round(p.vel.length()), throttle: p.throttle, cruise: this.cruise > 0.5, missiles: p.missiles, boost: p.boosting,
+      speed: Math.round(p.vel.length()), throttle: p.throttle, cruise: this.cruise > 0.5, missiles: p.missiles, missileCap: p.st.missile ? p.st.missileCap : 0, missileIn: p.st.missile && p.missiles < p.st.missileCap ? Math.ceil(MISSILE_RELOAD / Math.max(1, p.st.missileCap) - (p.misLoad || 0)) : 0, boost: p.boosting,
       // gun reticle at the range you're fighting at, so it shows where shots actually go
       reticle: this.project(_v3.copy(this.gunAim(_v4)).multiplyScalar(this.target && this.target.alive ? clamp(this.target.pos.distanceTo(p.pos), 300, 2500) : 900).add(p.pos)),
       aimCursor: this.mouseAim && this.aimDir ? this.project(_v3.copy(this.aimDir).multiplyScalar(900).add(p.pos)) : null,

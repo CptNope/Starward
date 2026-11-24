@@ -9,8 +9,37 @@ import { HULL_CLASSES } from './data.js';
 import { hashStr } from './rng.js';
 
 const SIZE = 900;
+// The landing pad can go anywhere within PAD_LIMIT of the map centre, but no closer than PAD_CLEAR to an outpost, camp or ruin.
+export const PAD_LIMIT = 380, PAD_CLEAR = 62;
 
-export function makeGroundEnv(game, sys, planet) {
+// Where the pad actually goes for a requested spot: inside the map and clear of every site.
+export function resolvePad(sites, site) {
+  const pad = { x: 0, z: 0 };
+  if (!site) return pad;
+  pad.x = clamp(site.x, -PAD_LIMIT, PAD_LIMIT); pad.z = clamp(site.z, -PAD_LIMIT, PAD_LIMIT);
+  // Moving clear of one site can push the pad toward its neighbour, so go round until it is clear of them all.
+  for (let pass = 0; pass < 12; pass++) {
+    let moved = false;
+    for (const s of sites) {
+      let dx = pad.x - s.x, dz = pad.z - s.z, d = Math.hypot(dx, dz);
+      if (d >= PAD_CLEAR - 0.01) continue;
+      if (d < 1) { dx = -s.x; dz = -s.z; d = Math.hypot(dx, dz) || 1; } // dead centre: step toward the middle of the map
+      pad.x = clamp(s.x + dx / d * (PAD_CLEAR + 0.5), -PAD_LIMIT, PAD_LIMIT); pad.z = clamp(s.z + dz / d * (PAD_CLEAR + 0.5), -PAD_LIMIT, PAD_LIMIT); moved = true;
+    }
+    if (!moved) break;
+  }
+  // Squeezed between a site and the edge of the map: take the nearest clear spot instead.
+  const clear = (x, z) => Math.abs(x) <= PAD_LIMIT && Math.abs(z) <= PAD_LIMIT && sites.every(s => Math.hypot(s.x - x, s.z - z) >= PAD_CLEAR - 0.01);
+  if (!clear(pad.x, pad.z)) {
+    search: for (let rad = 8; rad <= 400; rad += 8) for (let i = 0; i < 24; i++) {
+      const a = i / 24 * Math.PI * 2, x = pad.x + Math.cos(a) * rad, z = pad.z + Math.sin(a) * rad;
+      if (clear(x, z)) { pad.x = x; pad.z = z; break search; }
+    }
+  }
+  return pad;
+}
+
+export function makeGroundEnv(game, sys, planet, site = null) {
   const U = game.U, P = game.player;
   const N = Q.terrainSeg, CELL = SIZE / N;
   const biome = BIOMES.find(b => b.id === planet.biome);
@@ -29,7 +58,9 @@ export function makeGroundEnv(game, sys, planet) {
     const kind = r.weighted([['faction', planet.owner !== null ? 5 : 1], ['pirate', 2 + sys.danger * 0.4], ['ruins', 2]]);
     sites.push({ x, z, kind, faction: kind === 'faction' ? (planet.owner ?? r.int(0, U.factions.length - 1)) : kind === 'pirate' ? pirate.id : null, r: 38 });
   }
-  const flats = [{ x: 0, z: 0, r: 22 }, ...sites];
+  // ---- landing pad: wherever the captain chose on the survey map (map centre by default) ----
+  const pad = resolvePad(sites, site);
+  const flats = [{ x: pad.x, z: pad.z, r: 22 }, ...sites];
 
   // ---- heightfield ----
   const H = new Float32Array((N + 1) * (N + 1));
@@ -80,6 +111,17 @@ export function makeGroundEnv(game, sys, planet) {
     type: 'ground', level, gravity: planet.gravity, hazard: biome.hazard, bound: SIZE / 2 - 30, height, collide, blocksShot,
     title: `${planet.name} — ${biome.name} world · Threat ${planet.hostility}`, actors: [], crates: [], deposits: [], planet, biome,
     onExit: (mode) => game.leaveSurface(mode),
+    sites, pad, size: SIZE,
+  };
+  // Ground colour at a point, for the survey map shown before landing. Matches the terrain mesh.
+  const waterY = -amp * 0.55;
+  const k0 = new THREE.Color(biome.ground[0]), k1 = new THREE.Color(biome.ground[1]), k2 = new THREE.Color(biome.ground[2]), kt = new THREE.Color();
+  env.colorAt = (x, z) => {
+    const h = height(x, z);
+    if (biome.water && h < waterY) return kt.set(biome.id === 'toxic' ? 0x7a9a20 : 0x2a78c8);
+    const t = clamp((h / amp + 1) * 0.5, 0, 1);
+    kt.copy(k1).lerp(k0, clamp(t * 1.6, 0, 1)); if (t > 0.7) kt.lerp(k2, (t - 0.7) * 2.5);
+    return kt.multiplyScalar(0.8 + t * 0.35);
   };
 
   env.build = (scene) => {
@@ -108,25 +150,29 @@ export function makeGroundEnv(game, sys, planet) {
       w.rotation.x = -Math.PI / 2; w.position.y = -amp * 0.55; scene.add(w);
     }
     if (biome.id === 'volcanic') {
-      for (let i = 0; i < 18; i++) { const x = r.range(-400, 400), z = r.range(-400, 400); if (Math.hypot(x, z) < 40) continue; const l = new THREE.Mesh(new THREE.CircleGeometry(r.range(4, 12), 10), new THREE.MeshBasicMaterial({ color: 0xff5a1f })); l.rotation.x = -Math.PI / 2; l.position.set(x, height(x, z) + 0.15, z); scene.add(l); }
+      for (let i = 0; i < 18; i++) { const x = r.range(-400, 400), z = r.range(-400, 400); if (Math.hypot(x - pad.x, z - pad.z) < 40) continue; const l = new THREE.Mesh(new THREE.CircleGeometry(r.range(4, 12), 10), new THREE.MeshBasicMaterial({ color: 0xff5a1f })); l.rotation.x = -Math.PI / 2; l.position.set(x, height(x, z) + 0.15, z); scene.add(l); }
     }
     // props
     scatterProps(scene, r, biome, height, addCircle, flats);
     // landing pad + ship
-    const pad = new THREE.Mesh(new THREE.CylinderGeometry(14, 15, 0.6, 16), mat(0x8a9098, { metal: 0.15, rough: 0.7 })); pad.position.y = 0.3; scene.add(pad);
+    const padMesh = new THREE.Mesh(new THREE.CylinderGeometry(14, 15, 0.6, 16), mat(0x8a9098, { metal: 0.15, rough: 0.7 })); padMesh.position.set(pad.x, 0.3, pad.z); scene.add(padMesh);
     const hc = HULL_CLASSES.find(h => h.id === P.ship.cls);
-    const ship = buildShip(hashStr(P.ship.name + P.ship.cls), hc.size * 1.4, 0x4dd6ff, hc.id); ship.position.set(0, 3.2, 0); ship.rotation.y = 0.6; scene.add(ship);
+    const ship = buildShip(hashStr(P.ship.name + P.ship.cls), hc.size * 1.4, 0x4dd6ff, hc.id); ship.position.set(pad.x, 3.2, pad.z); ship.rotation.y = 0.6; scene.add(ship);
+    env.shipMesh = ship; env.shipRest = 3.2;
     for (const e of ship.userData.engines) e.material.opacity = 0.12; // parked: engines idling
-    boxes.push({ minX: -5, maxX: 5, minZ: -5, maxZ: 5, top: 4 });
+    boxes.push({ minX: pad.x - 5, maxX: pad.x + 5, minZ: pad.z - 5, maxZ: pad.z + 5, top: 4 });
     // outposts
     for (const s of sites) buildSite(scene, s, env, r, U, P, sys, height, boxes, game);
     // wildlife
     const packs = Math.round(2 + planet.hostility * 0.8);
     for (let i = 0; i < packs; i++) {
-      const a = r.range(0, 6.28), d = r.range(70, 400); const cx = Math.cos(a) * d, cz = Math.sin(a) * d;
-      const seed = r.int(1, 1e9), n = r.int(1, 4), lvl = Math.max(1, level + r.int(-1, 2));
-      const aggressive = r.chance(0.35 + planet.hostility * 0.06);
-      for (let k = 0; k < n; k++) env.actors.push({ kind: 'creature', seed, level: lvl, team: 'h', aggro: aggressive ? 26 : 7, name: 'Wildlife', pos: new THREE.Vector3(cx + r.range(-8, 8), 0, cz + r.range(-8, 8)) });
+      const a = r.range(0, 6.28), d = r.range(70, 400); let cx = Math.cos(a) * d, cz = Math.sin(a) * d;
+      // nothing spawns on top of the landing pad
+      const pd = Math.hypot(cx - pad.x, cz - pad.z); if (pd < 70) { const k = pd > 1 ? 70 / pd : 0; cx = k ? pad.x + (cx - pad.x) * k : pad.x + 70; cz = k ? pad.z + (cz - pad.z) * k : pad.z; }
+      const seed = r.int(1, 1e9), n = r.int(1, 4) + (planet.hostility >= 3 ? 1 : 0), lvl = Math.max(1, level + r.int(-1, 2));
+      const aggressive = r.chance(0.4 + planet.hostility * 0.07);
+      // the first animal of a pack of three or more is its alpha: bigger, tougher and worth more
+      for (let k = 0; k < n; k++) env.actors.push({ kind: 'creature', seed, pack: seed, alpha: k === 0 && n >= 3, level: lvl, team: 'h', aggro: aggressive ? 30 : 9, name: 'Wildlife', pos: new THREE.Vector3(cx + r.range(-8, 8), 0, cz + r.range(-8, 8)) });
     }
     // deposits & caches
     for (let i = 0; i < r.int(10, 18); i++) {
@@ -146,7 +192,7 @@ export function makeGroundEnv(game, sys, planet) {
       const boss = genNPC(U, r, { faction: pir.id, role: 'soldier', level: m.level + 2 }); boss.name = m.targetName; boss.hp *= 3;
       env.actors.push({ kind: 'npc', npc: boss, level: boss.level, team: 'h', aggro: 45, boss: true, missionId: m.id, pos: new THREE.Vector3(cx, 0, cz) });
     }
-    return { pos: new THREE.Vector3(10, 0, 10), yaw: 0.8, exit: { pos: new THREE.Vector3(0, 0, 0), r: 9, label: 'Board your ship (launch)' } };
+    return { pos: new THREE.Vector3(pad.x + 10, 0, pad.z + 10), yaw: 0.8, exit: { pos: new THREE.Vector3(pad.x, 0, pad.z), r: 9, label: 'Board your ship (launch)' } };
   };
   return env;
 }

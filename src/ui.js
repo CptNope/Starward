@@ -6,6 +6,8 @@ import { genMissions } from './missions.js';
 import { RNG, hashInts } from './rng.js';
 import { PRESETS, detectTier } from './quality.js';
 import { guideHTML, aboutHTML, VERSION, LINKS } from './guide.js';
+import { makeGroundEnv, resolvePad, PAD_LIMIT, PAD_CLEAR } from './ground.js';
+import { hostileToPlayer } from './gen/universe.js';
 
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -190,7 +192,9 @@ export class UI {
     const box = $('#toasts');
     const d = document.createElement('div'); d.className = 'toast'; d.style.borderColor = color; d.innerHTML = `<span style="color:${color}">●</span> ${esc(msg)}`;
     box.prepend(d); while (box.children.length > (innerHeight < 500 ? 3 : 6)) box.lastChild.remove();
-    setTimeout(() => d.classList.add('out'), 3600); setTimeout(() => d.remove(), 4200);
+    box.classList.toggle('over', !!this.modal); // with a menu open, messages sit above it instead of blurred behind it
+    const life = Math.min(9000, 3600 + Math.max(0, String(msg).length - 50) * 55); // long messages stay up longer
+    setTimeout(() => d.classList.add('out'), life); setTimeout(() => d.remove(), life + 600);
   }
   prompt(t) {
     if (t && this.game.touch && this.game.touch.active) t = t.replace(/^[EL] · /, 'USE · ');
@@ -210,7 +214,7 @@ export class UI {
     this.show('#lockhint', !this.game.input.locked && this.game.input.lastDevice === 'kbm' && this.game.settings.flight !== 'classic' && !(this.game.touch && this.game.touch.active));
     this.bar('#b1', d.shield, d.shieldTxt); this.bar('#b2', d.hull, d.hullTxt); this.bar('#b3', d.energy, `${Math.round(d.energy * 100)}%`);
     this.label('#b1 span', 'Shield'); this.label('#b2 span', 'Hull'); this.show('#b3', true);
-    this.set('#spd', `<b>${Math.round(d.speed / 5) * 5}</b> m/s ${d.cruise ? '<span class="cruise">CRUISE</span>' : d.boost ? '<span class="boost">BOOST</span>' : ''}<div class="thr"><i style="width:${Math.round(d.throttle * 20) * 5}%"></i></div><div class="mis">Missiles ${d.missiles}</div>`);
+    this.set('#spd', `<b>${Math.round(d.speed / 5) * 5}</b> m/s ${d.cruise ? '<span class="cruise">CRUISE</span>' : d.boost ? '<span class="boost">BOOST</span>' : ''}<div class="thr"><i style="width:${Math.round(d.throttle * 20) * 5}%"></i></div><div class="mis">Missiles ${d.missiles}${d.missileCap ? '/' + d.missileCap : ''}${d.missileIn ? ` <span class="rl">+1 in ${d.missileIn}s</span>` : ''}</div>`);
     const touch = this.game.touch && this.game.touch.active;
     // gun reticle follows where the guns actually point
     const ch = $('#crosshair');
@@ -267,13 +271,15 @@ export class UI {
   hitMarker(crit) { const h = $('#hitmark'); h.className = crit ? 'show crit' : 'show'; clearTimeout(this._hm); this._hm = setTimeout(() => h.className = '', 120); }
   damageFlash() { const v = $('#vignette'); v.style.opacity = 0.55; clearTimeout(this._dv); this._dv = setTimeout(() => v.style.opacity = 0, 140); }
   warpFx(on) { $('#warp').className = on ? 'on' : ''; }
+  entryFx(on) { $('#warp').className = on ? 'on entry' : ''; }
 
   // ---------------- Overlay framework ----------------
   open(kind, html) {
     this.modal = kind; this.overlay.innerHTML = html; this.overlay.style.display = 'flex';
+    $('#toasts').classList.add('over');
     this.game.input.releaseLock(); this.tip.style.display = 'none';
   }
-  close() { this.modal = null; this.overlay.style.display = 'none'; this.overlay.innerHTML = ''; this.tip.style.display = 'none'; this.game.audio.ui(); this.game.afterMenu(); }
+  close() { this.modal = null; this.land = null; this.overlay.style.display = 'none'; this.overlay.innerHTML = ''; this.tip.style.display = 'none'; $('#toasts').classList.remove('over'); this.game.audio.ui(); this.game.afterMenu(); }
   onHover(e) {
     const el = e.target.closest('[data-tip]');
     if (!el) { this.tip.style.display = 'none'; return; }
@@ -512,7 +518,7 @@ export class UI {
     if (!g.barCache[key]) { const r = new RNG(hashInts(st.seed, day, 5)); const n = r.int(3, 5); g.barCache[key] = Array.from({ length: n }, () => genNPC(U, r, { faction: r.chance(0.6) ? st.faction : null, level: U.systems[P.systemId].level })); }
     const npcs = g.barCache[key].filter(n => !P.crew.some(c => c.id === n.id));
     this.barNpcs = npcs;
-    return `<h3>The bar is quiet tonight</h3><div class="bar">${npcs.map(n => { const role = NPC_ROLES.find(r => r.id === n.role); return `<div class="crew"><b>${esc(n.name)}</b> <small>${esc(n.speciesName)} ${role.name} · Lv ${n.level} · ${n.traits.join(', ')}</small><div class="muted">${n.faction !== null ? esc(U.factions[n.faction].name) : 'Independent'} · Crew bonus: ${role.crew.label}</div><button data-a="bartalk" data-v="${n.id}">Talk</button><button data-a="hire" data-v="${n.id}" ${P.credits >= n.hireCost && P.crew.length < crewCap(P) ? '' : 'disabled'}>Hire · ${fmt(n.hireCost)} cr</button></div>`; }).join('')}</div><div class="muted pad">Crew ${P.crew.length}/${crewCap(P)}. Bigger hulls and the Leadership skill hold more crew.</div>`;
+    return `<h3>The bar is quiet tonight</h3><div class="bar">${npcs.map(n => { const role = NPC_ROLES.find(r => r.id === n.role); return `<div class="crew"><b>${esc(n.name)}</b> <small>${esc(n.speciesName)} ${role.name} · Lv ${n.level} · ${n.traits.join(', ')}</small><div class="muted">${n.faction !== null ? esc(U.factions[n.faction].name) : 'Independent'} · Crew bonus: ${role.crew.label}</div>${this.barLine && this.barLine.id === n.id ? `<div class="say">${esc(this.barLine.text)}</div>` : ''}<button data-a="bartalk" data-v="${n.id}">Talk</button><button data-a="hire" data-v="${n.id}" ${P.credits >= n.hireCost && P.crew.length < crewCap(P) ? '' : 'disabled'}>Hire · ${fmt(n.hireCost)} cr</button></div>`; }).join('')}</div><div class="muted pad">Crew ${P.crew.length}/${crewCap(P)}. Bigger hulls and the Leadership skill hold more crew.</div>`;
   }
   st_workshop() {
     const P = this.game.player; P.parts = P.parts || 0;
@@ -538,6 +544,55 @@ export class UI {
     const r = new RNG(st.seed); const avail = HULL_CLASSES.filter(h => h.capital ? r.chance(0.12) : r.chance(0.7));
     if (!avail.length) avail.push(HULL_CLASSES[1]);
     return `<h3>Shipyard <small>Trade-in value of your ${cur.name}: ${fmt(trade)} cr</small></h3><table class="tbl"><tr><th>Hull</th><th>Hull</th><th>Shield</th><th>Speed</th><th>Turn</th><th>Guns</th><th>Crew</th><th>Cargo</th><th>Price</th><th></th></tr>${avail.map(h => { const cost = Math.max(0, h.price - trade); return `<tr class="${h.id === cur.id ? 'cur' : ''}"><td><b>${h.name}</b></td><td>${h.hull}</td><td>${h.shield}</td><td>${h.speed}</td><td>${h.turn}</td><td>${h.slots}</td><td>${h.crew}</td><td>${h.cargo}</td><td>${fmt(cost)}</td><td>${h.id === cur.id ? 'Current' : `<button data-a="buyship" data-v="${h.id}" ${P.credits >= cost ? '' : 'disabled'}>Buy</button>`}</td></tr>`; }).join('')}</table><div class="muted pad">Your gear moves to the new hull. Guns beyond the new hull's slots go to your inventory. You can also capture ships by disabling and boarding them.</div>`;
+  }
+
+  // ---------------- Landing ----------------
+  // A survey map of the landing zone. Click anywhere to place the pad, or pick a site from the list.
+  landing(space, pl) {
+    const g = this.game, U = g.U, P = g.player, sys = getSystem(U, P.systemId);
+    const env = makeGroundEnv(g, sys, pl.data); // survey only: heights and sites, nothing is built yet
+    this.land = { space, pl, env, sel: { x: 0, z: 0 } };
+    const sites = env.sites.map((s, i) => {
+      const fac = s.faction !== null ? U.factions[s.faction] : null;
+      const hostile = s.kind === 'pirate' || (fac && hostileToPlayer(U, P, fac.id));
+      s.label = s.kind === 'ruins' ? 'Alien ruins' : s.kind === 'pirate' ? 'Pirate camp' : `${fac.name} outpost`;
+      s.color = s.kind === 'ruins' ? '#c792ff' : s.kind === 'pirate' ? '#ff6b6b' : hex(fac.color); s.hostile = hostile;
+      return `<button data-a="landgo" data-v="${i}"><span class="dot" style="background:${s.color}"></span>Land near the ${esc(s.label)}${hostile && s.kind !== 'pirate' ? ' <small class="down">hostile</small>' : ''}</button>`;
+    }).join('');
+    this.open('landing', `<div class="panel dlg land"><div class="dh"><div><div class="dn">Land on ${esc(pl.data.name)}</div><div class="muted">${esc(env.biome.name)} world · Threat ${pl.data.hostility}${env.hazard ? ' · Hazardous air' : ''}</div></div></div>
+      <div class="landgrid"><canvas id="landmap" width="360" height="360"></canvas>
+      <div class="acts col"><div class="muted small">Click the survey map to choose where to set down, or pick a site. The marker shows where your ship will land.</div>
+      <button data-a="landgo" data-v="sel" class="go">Land at the marker</button>${sites}<button data-a="close">Cancel</button></div></div></div>`);
+    const cv = $('#landmap', this.overlay);
+    cv.addEventListener('pointerdown', (e) => {
+      const r = cv.getBoundingClientRect(), S = env.size;
+      this.land.sel = { x: ((e.clientX - r.left) / r.width - 0.5) * S, z: ((e.clientY - r.top) / r.height - 0.5) * S };
+      this.drawLandMap(); g.audio.ui();
+    });
+    this.drawLandMap();
+  }
+  drawLandMap() {
+    const L = this.land, cv = $('#landmap', this.overlay); if (!L || !cv) return;
+    const ctx = cv.getContext('2d'), W = cv.width, S = L.env.size, C = 3, px = (v) => (v / S + 0.5) * W;
+    if (!L.img) { // the terrain only needs drawing once
+      for (let j = 0; j < W; j += C) for (let i = 0; i < W; i += C) {
+        const c = L.env.colorAt(((i + C / 2) / W - 0.5) * S, ((j + C / 2) / W - 0.5) * S);
+        ctx.fillStyle = c.getStyle(); ctx.fillRect(i, j, C, C);
+      }
+      L.img = ctx.getImageData(0, 0, W, W);
+    } else ctx.putImageData(L.img, 0, 0);
+    ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.setLineDash([4, 4]); ctx.strokeRect(px(-PAD_LIMIT), px(-PAD_LIMIT), px(PAD_LIMIT) - px(-PAD_LIMIT), px(PAD_LIMIT) - px(-PAD_LIMIT)); ctx.setLineDash([]);
+    ctx.font = '600 11px system-ui, sans-serif'; ctx.textAlign = 'center';
+    for (const s of L.env.sites) {
+      ctx.fillStyle = s.color; ctx.strokeStyle = '#04070d'; ctx.lineWidth = 2;
+      ctx.beginPath(); if (s.kind === 'ruins') { const x = px(s.x), y = px(s.z); ctx.moveTo(x, y - 8); ctx.lineTo(x + 8, y); ctx.lineTo(x, y + 8); ctx.lineTo(x - 8, y); ctx.closePath(); } else ctx.arc(px(s.x), px(s.z), 6, 0, 6.29);
+      ctx.fill(); ctx.stroke();
+      const ty = px(s.z) < 22 ? px(s.z) + 18 : px(s.z) - 10, tx = Math.max(46, Math.min(W - 46, px(s.x)));
+      ctx.lineWidth = 3; ctx.strokeText(s.label, tx, ty); ctx.fillStyle = '#fff'; ctx.fillText(s.label, tx, ty);
+    }
+    const p = resolvePad(L.env.sites, L.sel), x = px(p.x), y = px(p.z);
+    ctx.strokeStyle = '#04070d'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(x, y, 9, 0, 6.29); ctx.moveTo(x - 15, y); ctx.lineTo(x + 15, y); ctx.moveTo(x, y - 15); ctx.lineTo(x, y + 15); ctx.stroke();
+    ctx.strokeStyle = '#4dd6ff'; ctx.lineWidth = 2; ctx.stroke();
   }
 
   // ---------------- Dialogs ----------------
@@ -666,7 +721,13 @@ UI.prototype.handlers = {
   rename() { const el = $('.svc:nth-child(6) span', this.overlay) || $('.svc span', this.overlay); const P = this.game.player; const n = ['Wayfarer', 'Lucky Star', 'Night Heron', 'Ember Wake', 'Second Chance', 'Quiet Storm', 'Long Odds', 'Vagrant Sun'][Math.floor(Math.random() * 8)]; P.ship.name = n; this.toast(`Ship renamed: ${n}`, '#9fd8ff'); this.refresh(); },
   train() { const g = this.game, c = this.trainCost(); if (g.player.credits >= c) { g.addCredits(-c); g.player.bought = (g.player.bought || 0) + 1; g.player.skillPoints++; this.toast('+1 skill point', '#b766ff'); } this.refresh(); },
   save() { this.game.save(true); },
-  bartalk(id) { const n = this.barNpcs.find(x => x.id === id); const r = new RNG(Date.now()); const l = npcLine(this.game.U, n, r, this.game.U.systems[this.game.player.systemId].name); this.toast(`${n.name}: “${l.greet} ${l.rumor}”`, '#cfe6ff'); },
+  bartalk(id) { const n = this.barNpcs.find(x => x.id === id); if (!n) return; const r = new RNG(Date.now()); const l = npcLine(this.game.U, n, r, this.game.U.systems[this.game.player.systemId].name); this.barLine = { id: n.id, text: `“${l.greet} ${l.rumor}”` }; this.refresh(); },
+  landgo(v) {
+    const L = this.land; if (!L) return;
+    let site = L.sel;
+    if (v !== 'sel') { const s = L.env.sites[+v]; if (!s) return; const d = Math.hypot(s.x, s.z) || 1; site = { x: s.x - s.x / d * PAD_CLEAR, z: s.z - s.z / d * PAD_CLEAR }; }
+    const { space, pl } = L; this.close(); space.startDescent(pl, site);
+  },
   hire(id) { const g = this.game, P = g.player; const n = this.barNpcs.find(x => x.id === id); if (!n || P.credits < n.hireCost || P.crew.length >= crewCap(P)) return; g.addCredits(-n.hireCost); P.crew.push(n); g.statsChanged(); this.toast(`${n.name} joined your crew`, '#7ee08a'); this.refresh(); },
   wup() { const g = this.game, P = g.player, it = this.findItem(this.sel); if (!it) return; const c = upgradeCost(it); if (P.parts < c.parts || P.credits < c.credits) return; if (upgradeItem(it, new RNG(Date.now()))) { P.parts -= c.parts; g.addCredits(-c.credits); g.statsChanged(); g.audio.loot(it.tier); this.toast(`Upgraded: ${it.name}`, TIERS[it.tier].color); } this.refresh(); },
   wref() { const g = this.game, P = g.player, it = this.findItem(this.sel); if (!it) return; const c = reforgeCost(it); if (P.parts < c.parts || P.credits < c.credits) return; if (reforgeItem(it, new RNG(Date.now()))) { P.parts -= c.parts; g.addCredits(-c.credits); g.statsChanged(); this.toast(`Reforged: ${it.name}`, TIERS[it.tier].color); } this.refresh(); },

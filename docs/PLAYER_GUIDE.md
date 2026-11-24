@@ -1,6 +1,6 @@
 # Starward Player Guide
 
-*Version 0.6.0. This guide is generated from the game's data (`npm run docs`). The same guide is in the game: press **G**.*
+*Version 0.7.0. This guide is generated from the game's data (`npm run docs`). The same guide is in the game: press **G**.*
 
 **[▶ Play Starward](https://cptnope.github.io/Starward/)** · Made by **[Jeremy Anderson Tech](https://jeremyanderson.tech/)**
 
@@ -35,7 +35,7 @@ You captain a small fighter in a galaxy generated from a seed. There's no script
 1. **Dock** at the station you start next to: fly close and press **E** (or tap **USE**). Check the **Mission Board** and the **Gear Market**.
 2. **Spend your skill points** (**K**). Ship Weapons, Shield Harmonics and Flight Training are strong first picks.
 3. **Take a nearby contract.** Surveys and courier runs are safe; bounties pay more.
-4. **Open the galaxy map** (**M**), pick a star inside the dashed circle (your jump range) and engage the jump drive.
+4. **Open the galaxy map** (**M**), pick a star inside the dashed circle (your jump range) and engage the jump drive. With hostiles close the drive needs 4 seconds to spool up, so you can run from a fight if you survive the countdown.
 5. **Land** on planets (**L**) to mine ore, open caches and find relics in alien ruins.
 
 Danger and loot level rise the farther you travel from your starting system. Unclaimed space and pirate territory are the most dangerous and the most rewarding.
@@ -50,7 +50,9 @@ Danger and loot level rise the farther you travel from your starting system. Unc
 - **T** cycles targets (hostiles first); **R** targets whatever is ahead.
 - The **blue reticle** shows where your guns will hit. Guns swivel toward your aim, and when your aim is on the **gold lead diamond** they lock onto it, so put the ring on the diamond and fire. On a gamepad or touch, the ship also nudges itself toward a locked target's diamond.
 - **V** cycles the camera: chase, cockpit and a wide chase view.
-- Missiles (**right mouse** / **F**) home on your locked target. Restock them at stations.
+- The nearest hostile is locked for you when nothing else is. **T** cycles targets and **R** picks whatever is ahead.
+- Missiles (**right mouse** / **F**) home on your locked target. The rack reloads itself, about 90 seconds from empty to full, and stations restock it at once.
+- Enemy fighters ease off the throttle once they are in gun range, and your own gunfire has a slightly generous hit box against ships.
 - Shields regenerate after a few seconds without taking damage. Hull doesn't: repair it at a station or learn **Damage Control**.
 - If your ship is destroyed you wake at the last station you docked at, minus 15% of your credits and your cargo.
 
@@ -180,7 +182,7 @@ A station's shape tells you what it is before you read its name: a **Station** i
 
 ## Planets and exploration
 
-Fly within range of a planet and press **L** to land. Terrain, props, outposts, wildlife and loot are all generated from the planet's seed.
+Fly close to a planet (the prompt tells you how far you have to go) and press **L**. A **survey map** of the landing zone opens, with outposts, pirate camps and ruins marked. Click anywhere on it to choose where to set down, or pick a site from the list. Your ship then dives into the atmosphere and you watch it settle onto the pad; any key skips the touchdown. Terrain, props, outposts, wildlife and loot are all generated from the planet's seed.
 
 | Biome | Hazard |
 |---|---|
@@ -199,7 +201,7 @@ Fly within range of a planet and press **L** to land. Terrain, props, outposts, 
 - **Deposits** of ore, void crystals and relics can be extracted into your cargo hold.
 - **Locked caches** (red) need the Hacking skill.
 
-Wildlife comes in many body plans: four-legged beasts, two-legged raptors, low armoured crawlers (some with a scorpion's stinger), spiders, drifting floaters and winged flyers. All of them bite at close range, so keep your distance. **Ruin Guardians** are stone golems with a glowing core.
+Wildlife comes in many body plans: four-legged beasts, two-legged raptors, low armoured crawlers (some with a scorpion's stinger), spiders, drifting floaters and winged flyers. All of them bite at close range, so keep your distance. Beasts and crawlers soak up fire, raptors and flyers are fast, and hurting one animal brings the rest of its pack. A pack of three or more is led by a bigger, tougher **alpha** that is worth more XP and always drops loot. **Ruin Guardians** are stone golems with a glowing core, and the toughest things on any planet.
 
 Walk back to your ship and press **E** to launch.
 

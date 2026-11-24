@@ -34,6 +34,8 @@ SHOTS = "(()=>{ const pr=game.mode.proj; if(!pr.__wrapped){ const f=pr.spawn.bin
 async def spawn_enemy(pg, d=900):
     await pg.evaluate(f"()=>{{ const s=game.mode,P=s.player; const e=s.spawnGroup({{faction: game.U.factions.filter(f=>f.ideology==='pirate')[0].id, n:1, role:'raid', cls:'fighter', level:1, at:P.pos.clone().addScaledVector(P.forward(),{d})}})[0]; e.hp=1e6; e.st.hullMax=1e6; e.hull=1e6; window.__e=e; }}")
 FWD = "(()=>{ const f=game.mode.player.forward(); return [f.x,f.y,f.z]; })()"
+NEAR_PLANET = "(d)=>{ if(game.ui.modal) game.ui.close(); const s=game.mode,P=s.player,pl=s.planets[0]; const out=P.pos.clone().sub(pl.pos).normalize(); P.pos.copy(pl.pos).addScaledVector(out, pl.radius+d); P.vel.set(0,0,0); P.throttle=0; }"
+ON_GROUND = "()=>game.mode && game.mode.kind==='ground'"
 def ang(a,b):
     import math; d=sum(x*y for x,y in zip(a,b)); return math.acos(max(-1,min(1,d)))
 
@@ -112,9 +114,22 @@ async def test_kbm(p):
     pr = await st(pg,"()=>document.querySelector('#prompt').textContent"); check(G,"dock prompt names the E key", pr.startswith('E · '), pr)
     await pg.keyboard.press("KeyE"); await pg.wait_for_timeout(300); check(G,"E docks at a station", await st(pg,"()=>game.ui.modal")=='station')
     await pg.click("[data-a=undock]"); await pg.wait_for_timeout(300); check(G,"Undock button returns to space", await st(pg,"()=>game.ui.modal===null && game.mode.kind==='space'"))
-    # ---- on foot
-    await pg.evaluate("()=>{ const s=game.mode; game.land(s, s.planets[0].data); }"); await pg.wait_for_timeout(1200)
+    # ---- landing: fly close, pick a spot on the survey map, watch the touchdown
+    await pg.evaluate(NEAR_PLANET, 1500); await frames(pg,5)
+    pr = await st(pg,"()=>document.querySelector('#prompt').textContent"); check(G,"far from a planet the prompt says to fly closer", 'Fly closer' in pr, pr)
+    await pg.evaluate(NEAR_PLANET, 250); await frames(pg,5)
+    pr = await st(pg,"()=>document.querySelector('#prompt').textContent"); check(G,"land prompt names the L key", pr.startswith('L · Land on'), pr)
+    await pg.keyboard.press("KeyE"); await pg.wait_for_timeout(300); check(G,"E opens the landing map", await st(pg,"()=>game.ui.modal")=='landing')
+    box = await pg.locator('#landmap').bounding_box(); await pg.mouse.click(box['x']+box['width']*0.3, box['y']+box['height']*0.3); await frames(pg,3)
+    sel = await st(pg,"()=>game.ui.land.sel"); check(G,"clicking the map moves the landing marker", abs(sel['x']+180)<12 and abs(sel['z']+180)<12, sel)
+    await pg.keyboard.press("Enter"); await frames(pg,4); check(G,"Enter starts the descent", await st(pg,"()=>game.ui.modal===null && !!game.mode.descent"))
+    await pg.wait_for_function(ON_GROUND, timeout=20000)
     check(G,"landed on foot", await st(pg,"()=>game.mode.kind")=='ground')
+    check(G,"the pad is where the map was clicked", await st(pg,"()=>{ const p=game.mode.env.pad, s=game.mode.env.sites; return Math.hypot(p.x+180,p.z+180)<70 && s.every(q=>Math.hypot(q.x-p.x,q.z-p.z)>=61.9); }"))
+    await pg.wait_for_function("()=>game.mode.intro && game.mode.intro.t>0.6", timeout=10000)
+    p0 = await st(pg,"()=>game.mode.me.pos.toArray()"); await pg.keyboard.down("KeyW"); await pg.wait_for_timeout(250); await pg.keyboard.up("KeyW"); p1 = await st(pg,"()=>game.mode.me.pos.toArray()")
+    check(G,"controls are held during the touchdown", p0==p1 and await st(pg,"()=>!!game.mode.intro"))
+    await pg.keyboard.press("Space"); await frames(pg,4); check(G,"Space skips the touchdown", await st(pg,"()=>!game.mode.intro && Math.abs(game.mode.env.shipMesh.position.y-3.2)<0.01 && game.mode.me.onGround"))
     await pg.evaluate("()=>{ game.input.locked=true; }")
     p0 = await st(pg,"()=>game.mode.me.pos.toArray()"); await pg.keyboard.down("KeyW"); await pg.wait_for_timeout(400); await pg.keyboard.up("KeyW"); p1 = await st(pg,"()=>game.mode.me.pos.toArray()")
     check(G,"W walks forward", ((p1[0]-p0[0])**2+(p1[2]-p0[2])**2)**.5>0.5)
@@ -238,8 +253,15 @@ async def test_pad(p):
         check(G,"RB switches station tabs", await st(pg,"()=>document.querySelector('#overlay .tabs .on')?.dataset.v")!=tb0)
         await pad_btn(pg, 1); await pg.wait_for_timeout(300); check(G,"B undocks", await st(pg,"()=>game.ui.modal") is None)
         await pg.wait_for_timeout(300); check(G,"undocking with B doesn't trigger anything else", await st(pg,"()=>game.ui.modal") is None)
-    # on foot
-    await pg.evaluate("()=>{ const s=game.mode; game.land(s, s.planets[0].data); }"); await pg.wait_for_timeout(1300)
+    # landing with the pad: A opens the map, D-pad picks a site, A lands, A skips the touchdown
+    await pg.evaluate(NEAR_PLANET, 250); await frames(pg,5)
+    await pad_btn(pg, 0); await pg.wait_for_timeout(350); check(G,"A opens the landing map", await st(pg,"()=>game.ui.modal")=='landing')
+    check(G,"landing map highlights Land at the marker", await st(pg,"()=>document.querySelector('#overlay .gpfocus')?.dataset.v")=='sel')
+    await pad_btn(pg, 13); await pg.wait_for_timeout(200); check(G,"D-pad moves to a landing site", await st(pg,"()=>document.querySelector('#overlay .gpfocus')?.dataset.v")=='0')
+    await pad_btn(pg, 0); await pg.wait_for_timeout(200); check(G,"A starts the descent", await st(pg,"()=>game.ui.modal===null && !!game.mode.descent"))
+    await pg.wait_for_function(ON_GROUND, timeout=20000); await pg.wait_for_function("()=>game.mode.intro && game.mode.intro.t>0.6", timeout=10000)
+    check(G,"landed beside the chosen site", await st(pg,"()=>{ const p=game.mode.env.pad, s=game.mode.env.sites[0]; return Math.abs(Math.hypot(s.x-p.x,s.z-p.z)-62)<1; }"))
+    await pad_btn(pg, 0); await pg.wait_for_timeout(200); check(G,"A skips the touchdown without jumping", await st(pg,"()=>!game.mode.intro && game.mode.me.onGround"))
     p0 = await st(pg,"()=>game.mode.me.pos.toArray()"); await pad_axes(pg,[0,-0.9,0,0]); await pg.wait_for_timeout(400); await pad_axes(pg,[0,0,0,0]); p1 = await st(pg,"()=>game.mode.me.pos.toArray()")
     check(G,"left stick walks", ((p1[0]-p0[0])**2+(p1[2]-p0[2])**2)**.5>0.5)
     y0 = await st(pg,"()=>game.mode.yaw"); await pad_axes(pg,[0,0,0.9,0]); await pg.wait_for_timeout(300); await pad_axes(pg,[0,0,0,0])
@@ -336,8 +358,16 @@ async def test_touch(p):
     await hold("[data-b=use]"); await pg.wait_for_timeout(200); check(G,"USE button docks", await st(pg,"()=>game.ui.modal")=='station')
     check(G,"touch controls hide while docked", await st(pg,"()=>getComputedStyle(document.querySelector('#touch')).display")=='none')
     await pg.tap("[data-a=undock]"); await pg.wait_for_timeout(300); check(G,"tap Undock", await st(pg,"()=>game.ui.modal") is None)
-    # on foot
-    await pg.evaluate("()=>{ const s=game.mode; game.land(s, s.planets[0].data); }"); await pg.wait_for_timeout(1300)
+    # landing by touch: USE opens the map, tap the map, tap Land
+    await pg.evaluate(NEAR_PLANET, 250); await pg.wait_for_timeout(250)
+    pr = await st(pg,"()=>document.querySelector('#prompt').textContent"); check(G,"land prompt says USE", pr.startswith('USE · Land on'), pr)
+    await hold("[data-b=use]"); await pg.wait_for_timeout(300); check(G,"USE opens the landing map", await st(pg,"()=>game.ui.modal")=='landing')
+    box = await pg.locator('#landmap').bounding_box(); await pg.touchscreen.tap(box['x']+box['width']*0.7, box['y']+box['height']*0.3); await pg.wait_for_timeout(150)
+    sel = await st(pg,"()=>game.ui.land && game.ui.land.sel"); check(G,"tapping the map moves the landing marker", bool(sel) and sel['x']>120 and sel['z']<-120, sel)
+    check(G,"landing map fits the screen", await st(pg,"()=>{ const r=document.querySelector('#overlay .panel').getBoundingClientRect(); const b=[...document.querySelectorAll('#overlay [data-a=landgo]')].pop().getBoundingClientRect(); return r.left>=0 && r.right<=innerWidth+1 && b.width>40; }"))
+    await pg.tap("#overlay [data-a=landgo][data-v=sel]"); await pg.wait_for_timeout(200); check(G,"tap Land starts the descent", await st(pg,"()=>game.ui.modal===null && !!game.mode.descent"))
+    await pg.wait_for_function(ON_GROUND, timeout=20000); await pg.wait_for_function("()=>!game.mode.intro", timeout=20000)
+    check(G,"touchdown finishes on its own", await st(pg,"()=>game.mode.kind==='ground' && !game.mode.intro"))
     p0 = await st(pg,"()=>game.mode.me.pos.toArray()")
     await cdp_touch(cdp,"touchStart",[(1,(150,250))])
     for k in range(1,6): await cdp_touch(cdp,"touchMove",[(1,(150,250-k*12))]); await pg.wait_for_timeout(40)

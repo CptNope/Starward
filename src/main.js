@@ -22,6 +22,8 @@ import { Touch } from './touch.js';
 import { RNG } from './rng.js';
 
 const SAVE_KEY = 'starward-save-v1';
+// Seconds the jump drive takes to spool up when hostiles are close.
+const JUMP_SPOOL = 4;
 
 class Game {
   constructor() {
@@ -157,8 +159,19 @@ class Game {
     if (!m || m.kind !== 'space') return this.ui.toast('Return to your ship to jump', '#ff7a5a');
     const here = this.U.systems[this.player.systemId], there = this.U.systems[sysId];
     if (dist(here, there) > shipStats(this.player).jumpRange) return this.ui.toast('Out of jump range — upgrade your engine or learn Astrogation', '#ff7a5a');
-    if (m.enemiesNear(1500)) return this.ui.toast('Jump drive blocked — hostiles too close!', '#ff7a5a');
-    this.ui.close();
+    // With hostiles close the drive needs a few seconds to spool up: you can run, but you have to survive the countdown.
+    if (m.enemiesNear(1500)) {
+      if (m.jumpSpool) return;
+      if (this.ui.modal) this.ui.close();
+      m.jumpSpool = { sysId, t: JUMP_SPOOL };
+      return this.ui.toast(`Hostiles close — emergency jump in ${JUMP_SPOOL} seconds. Hold on!`, '#ffd34d');
+    }
+    this.doJump(sysId);
+  }
+  doJump(sysId) {
+    const m = this.mode;
+    if (!m || m.kind !== 'space') return;
+    if (this.ui.modal) this.ui.close();
     m.savePlayerShip();
     this.ui.warpFx(true); this.audio.warp();
     this.jumping = true;
@@ -180,14 +193,15 @@ class Game {
     this.ui.openStation(station, space, 'market');
     this.save(false);
   }
-  land(space, planet) {
+  land(space, planet, site = null) {
     space.savePlayerShip();
     this.player.landed++;
     const sys = getSystem(this.U, this.player.systemId);
     for (const m of this.player.missions) if (!m.done && m.type === 'survey' && m.sysId === sys.id && m.planetId === planet.id) this.completeMission(m);
     this.landedPlanet = planet;
-    const env = makeGroundEnv(this, sys, planet);
+    const env = makeGroundEnv(this, sys, planet, site);
     this.pushFoot(env);
+    setTimeout(() => this.ui.entryFx(false), 250);
     this.addXP(this.player.landed <= 50 ? 10 : 2, null);
   }
   board(space, ship, peaceful) {
@@ -394,6 +408,8 @@ class Game {
       // Esc that just freed the mouse already paused the game; don't let it unpause straight away
       const escFresh = performance.now() - (this.lockLostAt || 0) < 400;
       if ((inp.pressed('Escape') && !escFresh) || inp.pressed('KeyP') || inp.gpPressed(9)) ui.back();
+      // on the landing map, the same keys that opened it confirm the marked spot
+      else if (ui.modal === 'landing' && (inp.pressed('Enter') || inp.pressed('KeyL') || inp.pressed('KeyE'))) ui.handlers.landgo.call(ui, 'sel');
       if (!ui.modal) {
         this.mode.update(dt);
         this.player.time += dt;

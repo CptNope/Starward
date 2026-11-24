@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.7.0 — 2026-11-23 — Player feedback
+
+Changes made from feedback posted by Rob Rastaban in the Indie Game Players & Developers group.
+
+### Changed
+- **Dogfights you can follow.** Enemy fighters fly at 80% of their hull's top speed (was 90%), ease off the throttle once they are in gun range and break away without boost, so a fight is a turning fight instead of a string of high-speed passes. Your own gunfire has a slightly generous hit box against ships, and with mouse aim the guns lock onto the lead marker from a little further off (about 9° instead of 6°). In simulated fights against a pirate fighter, a pilot steering with a stick went from about a minute on average, with one fight in eight unfinished after 90 seconds, to between 10 and 20 seconds with every fight won. With mouse aim the simulated times were about the same as before, roughly 20 seconds.
+- **Automatic target lock.** With nothing locked, the nearest hostile is locked for you, so the lead marker and gun tracking are there as soon as a fight starts.
+- **Missiles reload.** The rack reloads itself, about 90 seconds from empty to full whatever its size. Stations still restock it at once. The HUD shows the count, the capacity and the time to the next missile.
+- **Landing.** You now have to fly close to a planet to land (420 m from the surface, was 900 m), and the prompt tells you how much further to go. Pressing **L** opens a survey map of the landing zone with outposts, pirate camps and ruins marked: click anywhere to choose where to set down, or pick a site from the list. The ship then dives into the atmosphere, and on the surface you watch it descend onto the pad before you step out. Any key skips the touchdown.
+- **Tougher wildlife.** Creatures have more health, set by body plan: about one and a half times what they had for flyers, up to nearly four times for crawlers. Beasts and crawlers soak up fire, raptors and flyers are fast. Hurting one animal brings the rest of its pack, and a pack of three or more is led by a bigger alpha with more health and a harder bite, worth more XP and guaranteed loot. Ruin Guardians have about five times their old health. Health bars name the creature.
+- **Jump away from a fight.** The jump drive is no longer blocked when hostiles are close. It takes 4 seconds to spool up instead, with a countdown, and then jumps.
+
+### Fixed
+- **Bar talk was unreadable.** What someone says at a station bar now appears in the bar panel under their name and stays there, instead of in a message behind the blurred menu.
+- **Messages behind menus.** Any message that appears while a menu is open now sits above the menu at the bottom of the screen. Long messages stay up longer.
+
+### Developer notes
+- `tests/input-test.py` lands the way a player does on each device (keys, gamepad, touch) and has 146 checks, up from 126.
+
 ## 0.6.0 — 2026-11-22 — New models
 
 Every model in the game was rebuilt. See them all in [docs/images/models.jpg](docs/images/models.jpg).

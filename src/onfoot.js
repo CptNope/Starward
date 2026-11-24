@@ -32,6 +32,20 @@ function buildViewGun() {
   return g;
 }
 
+// How each kind of creature fights. Multipliers on health, bite damage and speed; armor is per level.
+const CREATURES = {
+  beast: { name: 'Beast', hp: 2.0, dmg: 1.2, spd: 1.0 },
+  raptor: { name: 'Raptor', hp: 1.5, dmg: 1.3, spd: 1.25 },
+  crawler: { name: 'Crawler', hp: 2.2, dmg: 1.0, spd: 0.85, armor: 2 },
+  spider: { name: 'Spider', hp: 1.3, dmg: 1.1, spd: 1.15 },
+  floater: { name: 'Floater', hp: 1.2, dmg: 0.9, spd: 0.8 },
+  flyer: { name: 'Flyer', hp: 1.0, dmg: 0.9, spd: 1.4 },
+  golem: { name: 'Ruin Guardian', hp: 3.0, dmg: 1.6, spd: 0.75, armor: 2.5 },
+};
+const ALPHA = { hp: 1.8, dmg: 1.3, size: 1.3 };
+// Seconds the ship takes to settle onto the pad when you arrive on a planet.
+const TOUCHDOWN = 3.4;
+
 class Actor {
   constructor(mode, spec) {
     Object.assign(this, spec);
@@ -55,6 +69,8 @@ class Actor {
     if (!o) return;
     if (o.isPlayer && this.team === 'p') this.mode.betray(this);
     this.target = o;
+    // Hurt one animal and the rest of its pack comes for you.
+    if (this.pack && !this._called) { this._called = true; for (const a of this.mode.actors) if (a !== this && a.alive && a.pack === this.pack && !a.target && a.pos.distanceTo(this.pos) < 45) { a._called = true; a.target = o; } }
   }
 }
 
@@ -108,6 +124,11 @@ export class OnFootMode {
     for (const c of env.crates) this.addCrate(c);
     for (const d of env.deposits || []) this.addDeposit(d);
     this.camPos = this.me.pos.clone().add(new THREE.Vector3(0, 3, 6));
+    // Arriving on a planet: watch the ship come down onto the pad before you step out.
+    if (env.type === 'ground' && env.shipMesh && !env.skipTouchdown) {
+      this.intro = { t: 0, ship: env.shipMesh, rest: env.shipRest, from: env.shipRest + 55, a: Math.random() * 6.28 };
+      env.shipMesh.position.y = this.intro.from;
+    }
     g.ui.setMode('foot');
     g.ui.toast(env.title, '#9fd8ff');
   }
@@ -118,7 +139,17 @@ export class OnFootMode {
     mesh.position.copy(spec.pos); mesh.position.y = this.env.height(spec.pos.x, spec.pos.z);
     mesh.rotation.y = this.rng.range(0, 6.28);
     this.scene.add(mesh);
-    const a = new Actor(this, { ...spec, mesh, hp: spec.hp || (spec.npc ? spec.npc.hp : 40 + spec.level * 12), armor: spec.level * 1.5 });
+    const extra = {};
+    if (spec.kind === 'creature') {
+      const c = CREATURES[mesh.userData.plan] || CREATURES.beast, al = spec.alpha ? ALPHA : null;
+      if (al) { mesh.scale.multiplyScalar(al.size); mesh.userData.radius *= al.size; mesh.userData.height *= al.size; }
+      extra.hp = Math.round((60 + spec.level * 24) * c.hp * (al ? al.hp : 1));
+      extra.bite = (6.5 + spec.level * 3.3) * c.dmg * (al ? al.dmg : 1);
+      extra.spd = c.spd; extra.armor = spec.level * 1.5 * (c.armor || 1);
+      extra.name = spec.name === 'Wildlife' ? (al ? `Alpha ${c.name.toLowerCase()}` : c.name) : spec.name;
+      if (al) extra.boss = true;
+    }
+    const a = new Actor(this, { ...spec, mesh, hp: spec.hp || (spec.npc ? spec.npc.hp : 40 + spec.level * 12), armor: spec.level * 1.5, ...extra });
     a.proxy = hitProxy(a);
     this.actors.push(a);
     return a;
@@ -172,8 +203,31 @@ export class OnFootMode {
     if (items.length || r.chance(0.5)) this.addCrate({ pos: a.pos.clone(), items, credits: r.int(5, 25) * a.level, drop: true });
   }
 
+  // The landing: the ship descends on its thrusters while the camera watches from the edge of the pad.
+  // Any key, click or button skips it.
+  updateIntro(dt) {
+    const it = this.intro, g = this.game, inp = g.input, ship = it.ship, cam = this.camera;
+    it.t += dt;
+    const skip = it.t > 0.5 && (inp.pressed('Space') || inp.pressed('KeyE') || inp.pressed('Enter') || inp.click(0) || inp.gpPressed(0) || inp.gpPressed(1));
+    const k = Math.min(1, it.t / TOUCHDOWN), e = 1 - Math.pow(1 - k, 3);
+    ship.position.y = it.from + (it.rest - it.from) * e;
+    for (const en of ship.userData.engines) en.material.opacity = 0.12 + (1 - e) * 0.88;
+    const a = it.a + it.t * 0.12, px = this.env.pad.x, pz = this.env.pad.z;
+    cam.position.set(px + Math.cos(a) * 34, this.env.height(px + Math.cos(a) * 34, pz + Math.sin(a) * 34) + 6, pz + Math.sin(a) * 34);
+    cam.lookAt(px, ship.position.y * 0.55 + 1.5, pz);
+    this.pmesh.visible = false; this.viewGun.visible = false;
+    cam.updateMatrixWorld(); this.updateHud(); g.ui.navMarkers([]);
+    g.ui.prompt(`Landing on ${this.env.planet.name}…`);
+    if (k >= 1 || skip) this.endIntro();
+  }
+  endIntro() {
+    const it = this.intro; if (!it) return;
+    it.ship.position.y = it.rest; for (const en of it.ship.userData.engines) en.material.opacity = 0.12;
+    this.intro = null;
+  }
   update(dt) {
     this.time += dt;
+    if (this.intro) { this.updateIntro(dt); return; }
     const g = this.game, inp = g.input, gp = inp.gp, me = this.me, ps = this.ps, env = this.env;
     if (me.alive) {
       // look
@@ -289,13 +343,13 @@ export class OnFootMode {
         if (a.team === 'h' && me.alive && me.pos.distanceTo(a.pos) < a.aggro) a.target = this.me;
       }
     }
-    let moveTo = null, speed = a.kind === 'creature' ? 6 + a.level * 0.1 : 4.5;
+    let moveTo = null, speed = a.kind === 'creature' ? (6 + a.level * 0.1) * (a.spd || 1) : 4.5;
     const t = a.target && (a.target.isPlayer ? (me.alive ? me : null) : (a.target.alive ? a.target : null));
     if (t) {
       const d = t.pos.distanceTo(a.pos);
       a.mesh.rotation.y = Math.atan2(-(t.pos.x - a.pos.x), -(t.pos.z - a.pos.z));
       if (a.kind === 'creature') {
-        if (d > a.radius + 1.6) moveTo = t.pos; else if ((a.cool -= dt) <= 0) { a.cool = 1.1; a.lunge = 1; const dm = 6 + a.level * 3.2; t.isPlayer ? this.playerHit(dm, 'kinetic') : t.hit(dm, 'kinetic', { owner: a }); }
+        if (d > a.radius + 1.6) moveTo = t.pos; else if ((a.cool -= dt) <= 0) { a.cool = 1.0; a.lunge = 1; const dm = a.bite || 6 + a.level * 3.2; t.isPlayer ? this.playerHit(dm, 'kinetic') : t.hit(dm, 'kinetic', { owner: a }); }
         speed *= 1.25;
       } else {
         const w = a.npc.weapon.weapon;
