@@ -33,8 +33,11 @@ Made by **[Jeremy Anderson Tech](https://jeremyanderson.tech/)**
 
 | | |
 |---|---|
-| ![Planet outpost](docs/images/planet.jpg) | ![Boarding a ship](docs/images/boarding.jpg) |
-| ![Station mission board](docs/images/station.jpg) | ![Galaxy map](docs/images/map.jpg) |
+| ![Captain and crew with wildlife at a faction outpost](docs/images/planet.jpg) | ![Boarding a ship](docs/images/boarding.jpg) |
+| ![The landing survey map](docs/images/v070-landing-map.jpg) | ![Your ship touching down on a planet](docs/images/v070-touchdown.jpg) |
+| ![A hostile Dreadnought with fighter escorts](docs/images/capital.jpg) | ![Talking to people at a station bar](docs/images/bar.jpg) |
+| ![Station mission board](docs/images/station.jpg) | ![Upgrading gear in the Workshop](docs/images/workshop.jpg) |
+| ![Galaxy map](docs/images/map.jpg) | ![Touch controls on a phone](docs/images/touch.jpg) |
 
 Every ship, station, creature and character is built in code. Here they all are as of v0.6:
 

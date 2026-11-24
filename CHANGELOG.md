@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.1 — 2026-11-23 — Phone layout and fresh screenshots
+
+### Fixed
+- On short landscape phones the target panel sat under the BOOST, MSL, TARGET, USE and FIRE buttons. It now sits at the top centre of the screen, and messages appear at the bottom centre between your thumbs.
+
+### Developer notes
+- Every screenshot in the repository was retaken from the current build, so the README, the social preview image and the itch.io page show the current models and screens. New pictures: a hostile Dreadnought, the station bar, the Workshop and touch controls.
+
 ## 0.7.0 — 2026-11-23 — Player feedback
 
 Changes made from feedback by **Rob Rastaban**, who played Starward and posted a detailed list of what annoyed him in the Indie Game Players & Developers group on Facebook. Thanks, Rob.
