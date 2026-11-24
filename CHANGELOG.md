@@ -2,7 +2,7 @@
 
 ## 0.7.0 — 2026-11-23 — Player feedback
 
-Changes made from feedback posted by Rob Rastaban in the Indie Game Players & Developers group.
+Changes made from feedback posted by a player in the Indie Game Players & Developers group on Facebook.
 
 ### Changed
 - **Dogfights you can follow.** Enemy fighters fly at 80% of their hull's top speed (was 90%), ease off the throttle once they are in gun range and break away without boost, so a fight is a turning fight instead of a string of high-speed passes. Your own gunfire has a slightly generous hit box against ships, and with mouse aim the guns lock onto the lead marker from a little further off (about 9° instead of 6°). In simulated fights against a pirate fighter, a pilot steering with a stick went from about a minute on average, with one fight in eight unfinished after 90 seconds, to between 10 and 20 seconds with every fight won. With mouse aim the simulated times were about the same as before, roughly 20 seconds.
